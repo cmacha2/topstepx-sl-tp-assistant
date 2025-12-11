@@ -96,38 +96,139 @@
     <section class="section">
       <h2>Visual Settings</h2>
 
-      <div class="input-group">
-        <label for="slColor">🛑 Stop Loss Color:</label>
-        <div class="color-input-wrapper">
-          <input type="color" id="slColor" value="#FF0000">
-          <span class="color-preview" id="slColorPreview"></span>
+      <!-- Line Colors -->
+      <div class="subsection">
+        <h3>Line Colors</h3>
+        
+        <div class="input-group">
+          <label for="slColor">Stop Loss Color:</label>
+          <div class="color-input-wrapper">
+            <input type="color" id="slColor" value="#FF0000">
+            <span class="color-preview" id="slColorPreview"></span>
+          </div>
         </div>
-        <small>Color for loss line (recommended: Red)</small>
+
+        <div class="input-group">
+          <label for="tpColor">Take Profit Color:</label>
+          <div class="color-input-wrapper">
+            <input type="color" id="tpColor" value="#00FF00">
+            <span class="color-preview" id="tpColorPreview"></span>
+          </div>
+        </div>
       </div>
 
-      <div class="input-group">
-        <label for="tpColor">🎯 Take Profit Color:</label>
-        <div class="color-input-wrapper">
-          <input type="color" id="tpColor" value="#00FF00">
-          <span class="color-preview" id="tpColorPreview"></span>
+      <!-- Line Style -->
+      <div class="subsection">
+        <h3>Line Style</h3>
+        
+        <div class="input-group">
+          <label for="lineWidth">Line Width:</label>
+          <div class="slider-wrapper">
+            <input type="range" id="lineWidth" min="1" max="10" value="1">
+            <span class="slider-value" id="lineWidthValue">1</span>
+            <span class="slider-unit">px</span>
+          </div>
         </div>
-        <small>Color for profit line (recommended: Green)</small>
+
+        <div class="input-group">
+          <label for="slLineStyle">SL Line Style:</label>
+          <select id="slLineStyle">
+            <option value="0">Solid</option>
+            <option value="1">Dotted</option>
+            <option value="2">Dashed</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="tpLineStyle">TP Line Style:</label>
+          <select id="tpLineStyle">
+            <option value="0">Solid</option>
+            <option value="1">Dotted</option>
+            <option value="2">Dashed</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="lineOpacity">Line Opacity:</label>
+          <div class="slider-wrapper">
+            <input type="range" id="lineOpacity" min="0" max="100" value="100">
+            <span class="slider-value" id="lineOpacityValue">100</span>
+            <span class="slider-unit">%</span>
+          </div>
+        </div>
       </div>
 
-      <div class="input-group">
-        <label for="lineWidth">Line Width:</label>
-        <div class="slider-wrapper">
-          <input type="range" id="lineWidth" min="1" max="10" value="1">
-          <span class="slider-value" id="lineWidthValue">1</span>
-          <span class="slider-unit">px</span>
+      <!-- Text Settings -->
+      <div class="subsection">
+        <h3>Label Settings</h3>
+        
+        <div class="input-group">
+          <label for="fontSize">Font Size:</label>
+          <div class="slider-wrapper">
+            <input type="range" id="fontSize" min="8" max="16" value="10">
+            <span class="slider-value" id="fontSizeValue">10</span>
+            <span class="slider-unit">px</span>
+          </div>
         </div>
-        <small>Thickness of SL/TP lines (1=finest, 10=thickest)</small>
+
+        <div class="input-group">
+          <label for="labelFormat">Label Format:</label>
+          <select id="labelFormat">
+            <option value="compact">Compact (SL -$100 (1x))</option>
+            <option value="full">Full (STOP LOSS: -$100.00 (1x))</option>
+            <option value="minimal">Minimal (SL -$100)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="slPrefix">Stop Loss Text:</label>
+          <input type="text" id="slPrefix" value="SL" maxlength="20" placeholder="SL">
+          <small>Custom text for stop loss label</small>
+        </div>
+
+        <div class="input-group">
+          <label for="tpPrefix">Take Profit Text:</label>
+          <input type="text" id="tpPrefix" value="TP" maxlength="20" placeholder="TP">
+          <small>Custom text for take profit label</small>
+        </div>
       </div>
     </section>
 
-    <!-- Options Section -->
+    <!-- Display Options Section -->
     <section class="section">
-      <h2>Options</h2>
+      <h2>Display Options</h2>
+
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="showLabels" checked>
+          <span>Show dollar amounts on lines</span>
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="showDecimals">
+          <span>Show decimal places ($100.00)</span>
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="showContracts" checked>
+          <span>Show contract count (1x, 2x)</span>
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="fontBold">
+          <span>Bold label text</span>
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="useEmojis">
+          <span>Use emoji icons (🛑 🎯)</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Behavior Options Section -->
+    <section class="section">
+      <h2>Behavior Options</h2>
 
       <div class="checkbox-group">
         <label class="checkbox-label">
@@ -141,8 +242,13 @@
         </label>
 
         <label class="checkbox-label">
-          <input type="checkbox" id="showLabels" checked>
-          <span>Show dollar amounts on lines</span>
+          <input type="checkbox" id="autoHideOnMarket" checked>
+          <span>Auto-hide lines for market orders</span>
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="playSound">
+          <span>Play sound when lines appear</span>
         </label>
       </div>
     </section>
@@ -158,8 +264,8 @@
 
     <!-- Footer -->
     <footer>
-      <p class="version">v4.3.1</p>
-      <p class="credit">Enhanced UI • Dynamic Lines</p>
+      <p class="version">v4.4.1</p>
+      <p class="credit">Config Fixed • Fully Working</p>
     </footer>
   </div>
 

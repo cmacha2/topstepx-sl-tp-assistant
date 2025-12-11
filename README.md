@@ -61,7 +61,13 @@ The extension automatically detects when you:
 
 ## 📦 Installation
 
-### From Source (Development)
+### Option 1: Chrome Web Store (Coming Soon)
+
+The extension will be available on the Chrome Web Store soon. This is the **recommended** method for most users.
+
+[Install from Chrome Web Store](#) _(Link will be added after approval)_
+
+### Option 2: Install from Source (For Developers)
 
 1. **Clone the repository**
    ```bash
@@ -80,9 +86,11 @@ The extension automatically detects when you:
    - Open a chart
    - The extension is now active!
 
-### Chrome Web Store (Coming Soon)
+### Option 3: Install from Release
 
-The extension will be available on the Chrome Web Store soon.
+1. Download the latest `.zip` from [Releases](https://github.com/cmacha2/topstepx-sl-tp-assistant/releases)
+2. Extract the ZIP file
+3. Load in Chrome as unpacked extension (see Option 2, step 2)
 
 ## 🎮 Usage
 
@@ -299,24 +307,53 @@ If you find a bug or have a suggestion:
 - 💰 Real-time dollar recalculation
 - 📈 Contract quantity display
 
+## 🏪 Publishing to Chrome Web Store
+
+Want to help distribute this extension? See the complete guide:
+- **[Chrome Web Store Publishing Guide](CHROME-STORE-GUIDE.md)** - Complete guide
+- **[Quick Publish Guide](QUICK-PUBLISH.md)** - Fast track (30 minutes)
+
+### Build for Store
+
+```bash
+./build-store.sh
+```
+
+This creates a clean ZIP file ready for Chrome Web Store submission.
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔒 Privacy
+
+This extension does NOT collect any personal data. All settings are stored locally on your device.
+
+See [Privacy Policy](PRIVACY-POLICY.md) for complete details.
 
 ## 🙏 Acknowledgments
 
 - Built for the TopstepX trading community
 - Uses TradingView chart API
 - Inspired by the need for better visual risk management
+- Open source contributors
 
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/cmacha2/topstepx-sl-tp-assistant/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/cmacha2/topstepx-sl-tp-assistant/discussions)
+- **Documentation**: [Complete Guides](https://github.com/cmacha2/topstepx-sl-tp-assistant/tree/main)
 
 ## ⚠️ Disclaimer
 
-This extension is not affiliated with, endorsed by, or sponsored by TopstepX or TradingView. Use at your own risk. Always verify your stop loss and take profit levels before executing trades.
+**Important:** This extension is a VISUAL TOOL ONLY and does not provide financial advice.
+
+- ❌ Not affiliated with TopstepX or TradingView
+- ❌ No guaranteed profits
+- ❌ No automatic trade execution
+- ⚠️ Trading involves substantial risk of loss
+
+**Always verify your stop loss and take profit levels before executing trades. Use at your own risk.**
 
 ---
 

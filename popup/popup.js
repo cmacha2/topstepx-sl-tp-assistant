@@ -50,18 +50,39 @@ class PopupController {
       ratioGroup: document.getElementById('ratioGroup'),
       tpGroup: document.getElementById('tpGroup'),
 
-      // Visual Settings
+      // Visual Settings - Colors
       slColor: document.getElementById('slColor'),
       tpColor: document.getElementById('tpColor'),
       slColorPreview: document.getElementById('slColorPreview'),
       tpColorPreview: document.getElementById('tpColorPreview'),
+
+      // Visual Settings - Lines
       lineWidth: document.getElementById('lineWidth'),
       lineWidthValue: document.getElementById('lineWidthValue'),
+      slLineStyle: document.getElementById('slLineStyle'),
+      tpLineStyle: document.getElementById('tpLineStyle'),
+      lineOpacity: document.getElementById('lineOpacity'),
+      lineOpacityValue: document.getElementById('lineOpacityValue'),
 
-      // Options
+      // Visual Settings - Text
+      fontSize: document.getElementById('fontSize'),
+      fontSizeValue: document.getElementById('fontSizeValue'),
+      labelFormat: document.getElementById('labelFormat'),
+      slPrefix: document.getElementById('slPrefix'),
+      tpPrefix: document.getElementById('tpPrefix'),
+
+      // Display Options
+      showLabels: document.getElementById('showLabels'),
+      showDecimals: document.getElementById('showDecimals'),
+      showContracts: document.getElementById('showContracts'),
+      fontBold: document.getElementById('fontBold'),
+      useEmojis: document.getElementById('useEmojis'),
+
+      // Behavior Options
       persistLines: document.getElementById('persistLines'),
       autoUpdate: document.getElementById('autoUpdate'),
-      showLabels: document.getElementById('showLabels'),
+      autoHideOnMarket: document.getElementById('autoHideOnMarket'),
+      playSound: document.getElementById('playSound'),
 
       // Buttons
       saveBtn: document.getElementById('saveBtn'),
@@ -90,16 +111,37 @@ class PopupController {
     this.elements.tpRatio.value = config.tpRatio;
     this.elements.useRatio.checked = config.useRatio;
 
-    // Visual Settings
+    // Visual Settings - Colors
     this.elements.slColor.value = config.slColor;
     this.elements.tpColor.value = config.tpColor;
+
+    // Visual Settings - Lines
     this.elements.lineWidth.value = config.lineWidth;
     this.elements.lineWidthValue.textContent = config.lineWidth;
+    this.elements.slLineStyle.value = config.slLineStyle || 0;
+    this.elements.tpLineStyle.value = config.tpLineStyle || 0;
+    this.elements.lineOpacity.value = config.lineOpacity || 100;
+    this.elements.lineOpacityValue.textContent = config.lineOpacity || 100;
 
-    // Options
+    // Visual Settings - Text
+    this.elements.fontSize.value = config.fontSize || 10;
+    this.elements.fontSizeValue.textContent = config.fontSize || 10;
+    this.elements.labelFormat.value = config.labelFormat || 'compact';
+    this.elements.slPrefix.value = config.slPrefix || 'SL';
+    this.elements.tpPrefix.value = config.tpPrefix || 'TP';
+
+    // Display Options
+    this.elements.showLabels.checked = config.showLabels;
+    this.elements.showDecimals.checked = config.showDecimals || false;
+    this.elements.showContracts.checked = config.showContracts !== false;
+    this.elements.fontBold.checked = config.fontBold || false;
+    this.elements.useEmojis.checked = config.useEmojis || false;
+
+    // Behavior Options
     this.elements.persistLines.checked = config.persistLines;
     this.elements.autoUpdate.checked = config.autoUpdate;
-    this.elements.showLabels.checked = config.showLabels;
+    this.elements.autoHideOnMarket.checked = config.autoHideOnMarket !== false;
+    this.elements.playSound.checked = config.playSound || false;
   }
 
   /**
@@ -120,9 +162,17 @@ class PopupController {
       this.updateVisibility();
     });
 
-    // Line width slider
+    // Sliders
     this.elements.lineWidth.addEventListener('input', (e) => {
       this.elements.lineWidthValue.textContent = e.target.value;
+    });
+
+    this.elements.lineOpacity.addEventListener('input', (e) => {
+      this.elements.lineOpacityValue.textContent = e.target.value;
+    });
+
+    this.elements.fontSize.addEventListener('input', (e) => {
+      this.elements.fontSizeValue.textContent = e.target.value;
     });
 
     // Color pickers
@@ -232,18 +282,32 @@ class PopupController {
       tpRatio: parseFloat(this.elements.tpRatio.value),
       useRatio: this.elements.useRatio.checked,
 
-      // Visual Settings
+      // Visual Settings - Lines
       slColor: this.elements.slColor.value,
       tpColor: this.elements.tpColor.value,
       lineWidth: parseInt(this.elements.lineWidth.value),
-      slLineStyle: 'solid',
-      tpLineStyle: 'solid',
+      slLineStyle: parseInt(this.elements.slLineStyle.value),
+      tpLineStyle: parseInt(this.elements.tpLineStyle.value),
+      lineOpacity: parseInt(this.elements.lineOpacity.value),
 
-      // Options
+      // Visual Settings - Text
+      fontSize: parseInt(this.elements.fontSize.value),
+      fontBold: this.elements.fontBold.checked,
+      showLabels: this.elements.showLabels.checked,
+      labelFormat: this.elements.labelFormat.value,
+      showDecimals: this.elements.showDecimals.checked,
+      showContracts: this.elements.showContracts.checked,
+
+      // Label Text Customization
+      slPrefix: this.elements.slPrefix.value.trim() || 'SL',
+      tpPrefix: this.elements.tpPrefix.value.trim() || 'TP',
+      useEmojis: this.elements.useEmojis.checked,
+
+      // Behavior Options
       persistLines: this.elements.persistLines.checked,
       autoUpdate: this.elements.autoUpdate.checked,
-      showLabels: this.elements.showLabels.checked,
-      playSound: false,
+      autoHideOnMarket: this.elements.autoHideOnMarket.checked,
+      playSound: this.elements.playSound.checked,
 
       // Advanced (from defaults)
       roundContracts: 'down',

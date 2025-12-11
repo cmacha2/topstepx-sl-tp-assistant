@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TopstepX SL/TP Assistant",
-  "version": "4.3.1",
+  "version": "4.4.1",
   "description": "Visual Stop Loss and Take Profit lines with automatic risk calculation for TopstepX",
 
   "permissions": [
@@ -34,7 +34,6 @@
       "js": [
         "lib/calculations.js",
         "lib/instrument-database.js",
-        "lib/storage-manager.js",
         "lib/smart-dom-observer.js",
         "lib/network-interceptor.js",
         "lib/chart-access.js",
@@ -42,6 +41,15 @@
       ],
       "run_at": "document_idle",
       "world": "MAIN"
+    },
+    {
+      "matches": ["https://topstepx.com/*"],
+      "js": [
+        "lib/storage-manager.js",
+        "content-scripts/config-bridge.js"
+      ],
+      "run_at": "document_start",
+      "world": "ISOLATED"
     }
   ],
 

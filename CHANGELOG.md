@@ -5,6 +5,155 @@ All notable changes to the TopstepX SL/TP Visual Extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2024-12-11
+
+### 🎨 Full Customization Update
+
+#### Added - Visual Settings
+- **Line Style Options**: Solid, Dotted, or Dashed lines (separate for SL/TP)
+- **Line Opacity**: Adjustable transparency (0-100%)
+- **Font Size Control**: Configurable label font size (8-16px)
+- **Label Format Options**: 
+  - Compact: `SL -$100 (1x)`
+  - Full: `STOP LOSS: -$100.00 (1x)`
+  - Minimal: `SL -$100`
+- **Custom Text Labels**: Customize SL/TP prefix text (any language/symbols)
+- **Emoji Support**: Optional emoji icons (🛑 🎯)
+
+#### Added - Display Options
+- **Decimal Control**: Toggle decimal places on dollar amounts
+- **Contract Display**: Toggle contract count visibility
+- **Bold Text**: Make labels bold for better visibility
+- **Auto-hide Market Orders**: Automatically hide lines for market orders
+
+#### Added - Configuration
+- **Complete Dashboard**: All settings now accessible via UI
+- **25+ Configuration Options**: Every aspect fully customizable
+- **Preset Examples**: 5 professional configuration presets
+- **Configuration Guide**: Complete documentation (CONFIGURATION-GUIDE.md)
+
+#### Enhanced
+- **Format Label Function**: Smart label formatting based on config
+- **Dynamic Updates**: Labels update using configured format
+- **Storage Manager**: Extended with all new config options
+- **Popup UI**: Reorganized with subsections and better layout
+
+#### Improved
+- **CSS Styling**: Added styles for select dropdowns and text inputs
+- **Form Validation**: All new fields properly validated
+- **Persistence**: All settings saved and restored correctly
+- **Code Structure**: Clean, maintainable, production-ready
+
+#### Technical
+- **chart-access.js**: Added `formatLabel()` function
+- **storage-manager.js**: Extended DEFAULT_CONFIG with 15+ new options
+- **popup.html**: Reorganized into logical subsections
+- **popup.css**: New styles for selects, subsections, and inputs
+- **popup.js**: Updated to handle all new configuration fields
+
+### Configuration Options Summary
+
+**Visual - Lines:**
+- Line width (1-10px)
+- Line style (solid/dotted/dashed) - separate for SL/TP
+- Line opacity (0-100%)
+- Line colors
+
+**Visual - Text:**
+- Font size (8-16px)
+- Font weight (normal/bold)
+- Label format (compact/full/minimal)
+- Custom prefix text (SL/TP)
+- Emoji icons toggle
+
+**Display:**
+- Show labels toggle
+- Show decimals toggle
+- Show contracts toggle
+- Bold text toggle
+- Use emojis toggle
+
+**Behavior:**
+- Persist lines across sessions
+- Auto-update on price change
+- Auto-hide for market orders
+- Play sound alert
+
+### Presets Included
+
+1. **Minimalist Trader**: Ultra-clean, minimal distraction
+2. **Professional Trader**: Balanced visibility and info
+3. **Beginner Trader**: Maximum information, high visibility
+4. **Day Trader**: Fast execution, auto-clearing
+5. **Swing Trader**: Visual emphasis, persistent lines
+
+### Documentation
+- ✅ CONFIGURATION-GUIDE.md: Complete configuration reference
+- ✅ 5 detailed preset examples
+- ✅ Visual comparisons (line width, font size, formats)
+- ✅ Best practices for different trading styles
+- ✅ 25+ configuration examples
+
+### Breaking Changes
+None - Fully backward compatible. Existing configs will use new defaults for added features.
+
+---
+
+## [4.3.1] - 2024-12-11
+
+### 🎯 Minimalist UI Update
+
+#### Changed
+- **Line Width**: Default changed from 3px to 1px (minimalist)
+- **Font Size**: Reduced from 13px to 10px
+- **Font Weight**: Changed from bold to normal (thinner)
+- **Label Format**: Simplified from full to compact
+  - Before: `🛑 STOP LOSS: -$100.00 (1x)`
+  - After: `SL -$100 (1x)`
+- **Decimal Display**: Changed from .00 to whole numbers
+
+#### Removed
+- Emoji icons from default labels (optional now)
+- Heavy bold styling
+
+---
+
+## [4.3.0] - 2024-12-11
+
+### 🎯 Complete Order Detection System
+
+#### Added
+- **Full Order Type Support**:
+  - Limit orders (type: 1)
+  - Market orders (type: 2)
+  - Stop orders (type: 4)
+- **Smart Position Logic**: Correct SL/TP placement based on LONG/SHORT
+- **Position Size Detection**: Uses `positionSize` field (+/- for LONG/SHORT)
+- **Market Order Handling**: Lines don't show for market orders
+
+#### Enhanced
+- **Network Interceptor**: Detects order type from `type` field
+- **Logging System**: Ultra-detailed console logs
+- **Side Detection**: Correctly identifies LONG vs SHORT from positionSize
+
+#### Fixed
+- Lines now appear in correct positions for SHORT positions
+- Stop orders properly detected and handled
+- Contract quantity correctly extracted from absolute value
+
+---
+
+## [4.2.0] - 2024-12-10
+
+### 🔄 Dynamic Updates
+
+#### Added
+- **Real-time Value Updates**: Lines update when orders are dragged
+- **Dynamic Labels**: Dollar amounts recalculate in real-time
+- **Contract Display**: Shows quantity on labels
+
+---
+
 ## [1.0.0] - 2024-12-10
 
 ### 🎉 Initial Release

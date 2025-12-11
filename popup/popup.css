@@ -63,6 +63,28 @@ h1 {
   letter-spacing: 0.5px;
 }
 
+/* Subsection */
+.subsection {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.subsection:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.subsection h3 {
+  font-size: 11px;
+  font-weight: 600;
+  color: #00ff88;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* Input Groups */
 .input-group {
   margin-bottom: 12px;
@@ -102,7 +124,8 @@ h1 {
   border-color: #00ff88;
 }
 
-.input-wrapper input[type="number"] {
+.input-wrapper input[type="number"],
+.input-wrapper input[type="text"] {
   flex: 1;
   background: transparent;
   border: none;
@@ -110,6 +133,47 @@ h1 {
   font-size: 14px;
   padding: 8px 4px;
   outline: none;
+}
+
+/* Select Dropdown */
+select {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+select:focus {
+  border-color: #00ff88;
+}
+
+select option {
+  background: #2a2a3a;
+  color: #ffffff;
+  padding: 8px;
+}
+
+/* Text Input (non-wrapped) */
+input[type="text"]:not(.input-wrapper input[type="text"]) {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 14px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input[type="text"]:focus {
+  border-color: #00ff88;
 }
 
 .input-wrapper .currency,

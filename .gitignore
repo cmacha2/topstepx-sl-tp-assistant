@@ -26,6 +26,8 @@ FIX-SUMMARY.md
 RELEASE-*.md
 UI-*.md
 ORDER-STRUCTURE.md
+STORAGE-*.md
+TESTING-GUIDE.md
 
 # Build and development scripts
 generate-icons.js
@@ -33,8 +35,13 @@ validate-extension.sh
 
 # Old/unused content scripts
 content-scripts/main-content.js
+content-scripts/main-content.js.backup
 content-scripts/iframe-content.js
 content-scripts/webpack-interceptor.js
+
+# Build directory
+build/
+*.zip
 
 # Backup files
 *.backup

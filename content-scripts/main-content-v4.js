@@ -6,10 +6,10 @@
   const BUILD_TIME = new Date().toISOString().slice(0, 19).replace('T', ' ');
   console.log(`%c
   ╔══════════════════════════════════════════╗
-  ║  TopstepX SL/TP Assistant v4.3.1        ║
+  ║  TopstepX SL/TP Assistant v4.4.1        ║
   ║  BUILD: ${BUILD_TIME}                   ║
-  ║  STATUS: 🎯 ENHANCED UI                 ║
-  ║  ORDERS: LIMIT, STOP, MARKET            ║
+  ║  STATUS: 🔧 STORAGE FIXED               ║
+  ║  CONFIG: WORKING CORRECTLY              ║
   ╚══════════════════════════════════════════╝
   `, 'color: #00ff00; font-weight: bold; font-size: 16px;');
 
@@ -25,24 +25,130 @@
   let config = null;
   let chartAccess = null;
   let calculationEngine = null;
-  let storageManager = null;
   let domObserver = null;
   let networkInterceptor = null;
+  let configReady = false;
 
   /**
-   * Initialize
+   * Request config from ISOLATED world
+   */
+  function requestConfig() {
+    console.log('[TopstepX v4] 📡 Requesting config from bridge...');
+    window.postMessage({ type: 'TOPSTEP_GET_CONFIG' }, '*');
+  }
+
+  /**
+   * Listen for config messages from ISOLATED world
+   */
+  window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+    if (!event.data.type || !event.data.type.startsWith('TOPSTEP_')) return;
+
+    switch (event.data.type) {
+      case 'TOPSTEP_CONFIG_RESPONSE':
+        console.log('[TopstepX v4] 📥 Config received from bridge:', event.data.config);
+        config = event.data.config;
+        configReady = true;
+        
+        // If we're waiting for config, continue initialization
+        if (!chartAccess) {
+          continueInitialization();
+        } else {
+          // Just update lines if already initialized
+          updateLines();
+        }
+        break;
+
+      case 'TOPSTEP_CONFIG_CHANGED':
+        console.log('[TopstepX v4] 🔔 Config changed:', event.data.config);
+        config = event.data.config;
+        updateLines();
+        break;
+
+      case 'TOPSTEP_CONFIG_ERROR':
+        console.error('[TopstepX v4] ❌ Config error:', event.data.error);
+        break;
+    }
+  });
+
+  /**
+   * Initialize (Part 1 - wait for config)
    */
   async function initialize() {
     console.log('[TopstepX v4] 🔧 Initializing...');
 
     try {
-      // 1. Load modules
+      // 1. Load calculation engine
       calculationEngine = new CalculationEngine();
-      storageManager = new StorageManager();
-      config = await storageManager.getConfig();
-      console.log('[TopstepX v4] ✅ Config loaded');
+      console.log('[TopstepX v4] ✅ Calculation engine loaded');
 
-      // 2. Setup network interceptor (in MAIN world)
+      // 2. Request config from bridge
+      requestConfig();
+      
+      // Wait for config with timeout
+      for (let i = 0; i < 50; i++) {
+        if (configReady) break;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      if (!configReady) {
+        console.warn('[TopstepX v4] ⚠️ Config not ready after 5s, using defaults');
+        config = {
+          // Risk Management
+          riskMode: 'percent',
+          riskPercent: 2,
+          riskFixed: 500,
+          accountSize: 50000,
+          
+          // SL/TP
+          defaultSL: 100,
+          defaultTP: 200,
+          tpRatio: 2,
+          useRatio: true,
+          
+          // Visual Settings - Lines
+          slColor: '#FF0000',
+          tpColor: '#00FF00',
+          lineWidth: 1,
+          slLineStyle: 0,
+          tpLineStyle: 0,
+          lineOpacity: 100,
+          
+          // Visual Settings - Text
+          fontSize: 10,
+          fontBold: false,
+          showLabels: true,
+          labelFormat: 'compact',
+          showDecimals: false,
+          showContracts: true,
+          
+          // Label Text Customization
+          slPrefix: 'SL',
+          tpPrefix: 'TP',
+          useEmojis: false,
+          
+          // Options
+          persistLines: true,
+          autoUpdate: true,
+          autoHideOnMarket: true,
+          playSound: false
+        };
+      }
+
+      console.log('[TopstepX v4] ✅ Config ready');
+      continueInitialization();
+
+    } catch (error) {
+      console.error('[TopstepX v4] ❌ Initialization failed:', error);
+    }
+  }
+
+  /**
+   * Continue initialization after config is loaded
+   */
+  async function continueInitialization() {
+    try {
+      // 1. Setup network interceptor (in MAIN world)
       if (typeof NetworkInterceptor !== 'undefined') {
         networkInterceptor = new NetworkInterceptor();
         
@@ -64,10 +170,10 @@
         console.warn('[TopstepX v4] ⚠️ NetworkInterceptor not available');
       }
 
-      // 3. Create chart access instance
+      // 2. Create chart access instance
       chartAccess = new ChartAccess();
       
-      // 4. Find the chart
+      // 3. Find the chart
       console.log('[TopstepX v4] 🔍 Searching for chart...');
       const found = await chartAccess.findChart(60); // Wait up to 60 seconds
       
@@ -78,17 +184,10 @@
 
       console.log('[TopstepX v4] ✅ Chart connected!');
 
-      // 5. Setup DOM observer
+      // 4. Setup DOM observer
       domObserver = new SmartDOMObserver(handleDOMData);
       domObserver.start();
       console.log('[TopstepX v4] ✅ DOM observer started');
-
-      // 6. Listen for config changes
-      storageManager.onConfigChanged((newConfig) => {
-        config = newConfig;
-        console.log('[TopstepX v4] 🔄 Config updated');
-        updateLines();
-      });
 
       console.log('[TopstepX v4] ✅ INITIALIZATION COMPLETE');
 
