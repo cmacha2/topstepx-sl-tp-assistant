@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TopstepX SL/TP Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>SL/TP Assistant</h1>
+      <p class="subtitle">Visual Risk Management for TopstepX</p>
+    </header>
+
+    <!-- Risk Management Section -->
+    <section class="section">
+      <h2>Risk Management</h2>
+
+      <div class="toggle-group">
+        <label class="radio-label">
+          <input type="radio" name="riskMode" value="percent" id="riskPercent">
+          <span>% of Account</span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="riskMode" value="fixed" id="riskFixed">
+          <span>Fixed Dollar</span>
+        </label>
+      </div>
+
+      <div class="input-group" id="percentGroup">
+        <label for="riskPercentValue">Risk Percent:</label>
+        <div class="input-wrapper">
+          <input type="number" id="riskPercentValue" min="0.1" max="100" step="0.1" value="2">
+          <span class="unit">%</span>
+        </div>
+      </div>
+
+      <div class="input-group" id="fixedGroup" style="display: none;">
+        <label for="riskFixedValue">Risk Amount:</label>
+        <div class="input-wrapper">
+          <span class="currency">$</span>
+          <input type="number" id="riskFixedValue" min="0" step="50" value="500">
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="accountSize">Account Size:</label>
+        <div class="input-wrapper">
+          <span class="currency">$</span>
+          <input type="number" id="accountSize" min="0" step="1000" value="50000">
+        </div>
+      </div>
+    </section>
+
+    <!-- Stop Loss & Take Profit Section -->
+    <section class="section">
+      <h2>Stop Loss & Take Profit</h2>
+
+      <div class="input-group">
+        <label for="defaultSL">Stop Loss ($):</label>
+        <div class="input-wrapper">
+          <span class="currency">$</span>
+          <input type="number" id="defaultSL" min="0" step="10" value="100">
+        </div>
+        <small>Per contract dollar loss</small>
+      </div>
+
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="useRatio" checked>
+          <span>Use Ratio for Take Profit</span>
+        </label>
+      </div>
+
+      <div class="input-group" id="ratioGroup">
+        <label for="tpRatio">Risk:Reward Ratio:</label>
+        <div class="input-wrapper">
+          <input type="number" id="tpRatio" min="1" max="10" step="0.5" value="2">
+          <span class="unit">: 1</span>
+        </div>
+        <small>1:2 means TP is 2x the SL</small>
+      </div>
+
+      <div class="input-group" id="tpGroup" style="display: none;">
+        <label for="defaultTP">Take Profit ($):</label>
+        <div class="input-wrapper">
+          <span class="currency">$</span>
+          <input type="number" id="defaultTP" min="0" step="10" value="200">
+        </div>
+        <small>Per contract dollar profit</small>
+      </div>
+    </section>
+
+    <!-- Visual Settings Section -->
+    <section class="section">
+      <h2>Visual Settings</h2>
+
+      <div class="input-group">
+        <label for="slColor">🛑 Stop Loss Color:</label>
+        <div class="color-input-wrapper">
+          <input type="color" id="slColor" value="#FF0000">
+          <span class="color-preview" id="slColorPreview"></span>
+        </div>
+        <small>Color for loss line (recommended: Red)</small>
+      </div>
+
+      <div class="input-group">
+        <label for="tpColor">🎯 Take Profit Color:</label>
+        <div class="color-input-wrapper">
+          <input type="color" id="tpColor" value="#00FF00">
+          <span class="color-preview" id="tpColorPreview"></span>
+        </div>
+        <small>Color for profit line (recommended: Green)</small>
+      </div>
+
+      <div class="input-group">
+        <label for="lineWidth">Line Width:</label>
+        <div class="slider-wrapper">
+          <input type="range" id="lineWidth" min="1" max="10" value="1">
+          <span class="slider-value" id="lineWidthValue">1</span>
+          <span class="slider-unit">px</span>
+        </div>
+        <small>Thickness of SL/TP lines (1=finest, 10=thickest)</small>
+      </div>
+    </section>
+
+    <!-- Options Section -->
+    <section class="section">
+      <h2>Options</h2>
+
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="persistLines" checked>
+          <span>Keep lines across sessions</span>
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="autoUpdate" checked>
+          <span>Auto-update on price change</span>
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="showLabels" checked>
+          <span>Show dollar amounts on lines</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Action Buttons -->
+    <div class="actions">
+      <button id="saveBtn" class="btn btn-primary">Save Settings</button>
+      <button id="resetBtn" class="btn btn-secondary">Reset to Defaults</button>
+    </div>
+
+    <!-- Status Message -->
+    <div id="status" class="status" style="display: none;"></div>
+
+    <!-- Footer -->
+    <footer>
+      <p class="version">v4.3.1</p>
+      <p class="credit">Enhanced UI • Dynamic Lines</p>
+    </footer>
+  </div>
+
+  <script src="../lib/storage-manager.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

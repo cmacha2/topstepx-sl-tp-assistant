@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "TopstepX SL/TP Assistant",
+  "version": "4.3.1",
+  "description": "Visual Stop Loss and Take Profit lines with automatic risk calculation for TopstepX",
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "https://topstepx.com/*",
+    "https://*.tradingview.com/*"
+  ],
+
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://topstepx.com/*"],
+      "js": [
+        "lib/calculations.js",
+        "lib/instrument-database.js",
+        "lib/storage-manager.js",
+        "lib/smart-dom-observer.js",
+        "lib/network-interceptor.js",
+        "lib/chart-access.js",
+        "content-scripts/main-content-v4.js"
+      ],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/styles/injected-styles.css"
+      ],
+      "matches": ["https://topstepx.com/*"]
+    }
+  ],
+
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  }
+}
