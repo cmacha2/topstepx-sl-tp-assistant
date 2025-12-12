@@ -6,9 +6,9 @@
   const BUILD_TIME = new Date().toISOString().slice(0, 19).replace('T', ' ');
   console.log(`%c
   ╔══════════════════════════════════════════╗
-  ║  TopstepX SL/TP Assistant v4.5.5        ║
+  ║  TopstepX SL/TP Assistant v4.5.6        ║
   ║  BUILD: ${BUILD_TIME}                   ║
-  ║  STATUS: ✅ SMART LINE DISPLAY          ║
+  ║  STATUS: ✅ AUTO CLEAR ORDERS           ║
   ║  FEATURES: AUTO SYNC & RESTORE          ║
   ╚══════════════════════════════════════════╝
   `, 'color: #00ff00; font-weight: bold; font-size: 16px;');
