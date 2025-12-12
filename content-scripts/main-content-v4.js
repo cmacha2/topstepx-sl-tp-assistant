@@ -446,7 +446,7 @@
       console.log('[TopstepX v4] 📊 Contracts:', contracts);
 
       // Update lines on chart!
-      chartAccess.updateLines(slPrice, tpPrice, state.price, config, contracts, instrument);
+      chartAccess.updateLines(slPrice, tpPrice, state.price, config, contracts, instrument, state.side);
 
       console.log('[TopstepX v4] ✅ Lines updated on chart!');
 
