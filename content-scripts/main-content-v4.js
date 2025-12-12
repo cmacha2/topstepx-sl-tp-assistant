@@ -8,8 +8,8 @@
   ╔══════════════════════════════════════════╗
   ║  TopstepX SL/TP Assistant v4.6.0        ║
   ║  BUILD: ${BUILD_TIME}                   ║
-  ║  STATUS: 🏪 PERSISTENT LINES + SYNC     ║
-  ║  CONFIG: ORDERSTORE REHYDRATION         ║
+  ║  STATUS: 🏪 ORDERSTORE + DRAG SYNC      ║
+  ║  CONFIG: PERSISTENT LINES               ║
   ╚══════════════════════════════════════════╝
   `, 'color: #00ff00; font-weight: bold; font-size: 16px;');
 
@@ -207,13 +207,13 @@
 
       // 4. Setup DOM observer
       domObserver = new SmartDOMObserver(handleDOMData);
-      domObserver.start();
-      console.log('[TopstepX v4] ✅ DOM observer started');
-      
-      // 5. Rehydrate OrderStore and restore lines if available
-      await rehydrateOrderStore();
+        domObserver.start();
+        console.log('[TopstepX v4] ✅ DOM observer started');
+        
+        // 5. Rehydrate OrderStore and restore lines if available
+        await rehydrateOrderStore();
 
-      console.log('[TopstepX v4] ✅ INITIALIZATION COMPLETE');
+        console.log('[TopstepX v4] ✅ INITIALIZATION COMPLETE');
 
     } catch (error) {
       console.error('[TopstepX v4] ❌ Initialization failed:', error);
@@ -445,10 +445,10 @@
       console.log('[TopstepX v4] 🟢 TP Price:', tpPrice, state.side === 'long' ? '(above entry)' : '(below entry)');
       console.log('[TopstepX v4] 📊 Contracts:', contracts);
 
-      // Update lines on chart!
-      chartAccess.updateLines(slPrice, tpPrice, state.price, config, contracts, instrument, state.side);
+        // Update lines on chart!
+        chartAccess.updateLines(slPrice, tpPrice, state.price, config, contracts, instrument, state.side);
 
-      console.log('[TopstepX v4] ✅ Lines updated on chart!');
+        console.log('[TopstepX v4] ✅ Lines updated on chart!');
 
     } catch (error) {
       console.error('[TopstepX v4] ❌ Error updating lines:', error);

@@ -1,390 +1,114 @@
-# OrderStore Pattern - Arquitectura de Persistencia
+# OrderStore Pattern - Architecture Documentation
 
-## 🏪 Overview
+## 🎯 Overview
 
-El **OrderStore** es un sistema de gestión de estado inspirado en el patrón que usa TopstepX internamente. Garantiza que las líneas de SL/TP persistan cuando sales y regresas a la página.
+The **OrderStore** is a state management pattern that ensures SL/TP lines **persist** across page reloads, browser restarts, and navigation. Inspired by TopstepX's internal OrderStore, it follows five core principles:
 
-## 📐 Principios de Diseño
+1. **In-Memory**: State lives in RAM for instant access
+2. **Event-Based**: Observable pattern with explicit events
+3. **Deterministic**: Same inputs always produce same state
+4. **Rehydratable**: Survives page reloads via `chrome.storage.local`
+5. **Observable**: Multiple consumers can subscribe to changes
 
-### 1. **In-Memory**
-- Estado rápido y reactivo en memoria RAM
-- No hay latencia de I/O para operaciones frecuentes
-- Acceso instantáneo a datos
+## 🏗️ Architecture
 
-```javascript
-orderStore.activeOrder  // Acceso inmediato
-orderStore.linesState   // Sin delays
+### Components
+
+```
+┌─────────────────────────────────────────────┐
+│          MAIN World (Chart Access)          │
+├─────────────────────────────────────────────┤
+│  ┌──────────────┐      ┌────────────────┐  │
+│  │  OrderStore  │◄────►│  ChartAccess   │  │
+│  │  (In-Memory) │      │  (TradingView) │  │
+│  └──────┬───────┘      └────────────────┘  │
+│         │                                    │
+│         │ window.postMessage()               │
+│         ▼                                    │
+├─────────────────────────────────────────────┤
+│         ISOLATED World (Storage Access)      │
+├─────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────┐  │
+│  │        Config Bridge                 │  │
+│  │  chrome.storage.local (persistent)   │  │
+│  └──────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘
 ```
 
-### 2. **Event-Based**
-- Observable: Suscríbete a cambios
-- Desacoplado: Componentes no se conocen entre sí
-- Reactivo: Responde a cambios automáticamente
+### Communication Flow
 
-```javascript
-orderStore.on('order-upserted', (data) => {
-  console.log('Order saved:', data);
-});
-
-orderStore.on('order-removed', () => {
-  console.log('Order cleared');
-});
-
-orderStore.on('rehydrated', (data) => {
-  console.log('State restored:', data);
-});
+```
+1. User places order
+   ↓
+2. Lines drawn on chart
+   ↓
+3. ChartAccess calls orderStore.upsert()
+   ↓
+4. OrderStore updates in-memory state
+   ↓
+5. OrderStore sends SAVE message to bridge
+   ↓
+6. Bridge saves to chrome.storage.local
+   ↓
+7. Page reloads
+   ↓
+8. OrderStore.rehydrate() called on init
+   ↓
+9. Bridge loads from chrome.storage.local
+   ↓
+10. Lines restored to chart automatically
 ```
 
-### 3. **Determinístico**
-- Mismas entradas → Mismos resultados
-- Sin side effects inesperados
-- Estado predecible
+## 📦 OrderStore API
+
+### Core Methods
 
 ```javascript
-// Siempre produce el mismo resultado
+// UPSERT - Add or update order and lines
 orderStore.upsert(orderData, linesData);
-orderStore.getActiveOrder(); // → orderData exacto
-```
 
-### 4. **Rehydratable**
-- Persiste a `chrome.storage.local`
-- Se restaura al recargar
-- TTL de 24 horas
-
-```javascript
-// Al inicializar
-await orderStore.rehydrate();
-
-// Restaura estado automáticamente
-if (orderStore.hasActiveOrder()) {
-  chartAccess.restoreFromStore();
-}
-```
-
-### 5. **Observable**
-- Emite eventos en cada cambio
-- Múltiples listeners posibles
-- Desuscripción fácil
-
-```javascript
-const handler = (data) => console.log(data);
-
-orderStore.on('order-upserted', handler);
-orderStore.off('order-upserted', handler); // Cleanup
-```
-
-## 🔧 API Reference
-
-### Constructor
-```javascript
-const orderStore = new OrderStore();
-```
-
-### Methods
-
-#### `upsert(orderData, linesData)`
-Inserta o actualiza el estado actual.
-
-```javascript
-orderStore.upsert(
-  {
-    symbol: 'MNQ',
-    entryPrice: 25923.5,
-    contracts: 1,
-    side: 'long'
-  },
-  {
-    slPrice: 25903.5,
-    tpPrice: 25948.0,
-    entryPrice: 25923.5,
-    contracts: 1,
-    instrument: { tickSize: 0.25, tickValue: 5 },
-    config: { /* visual config */ }
-  }
-);
-```
-
-**Emits**: `order-upserted`
-
-#### `remove()`
-Elimina el estado actual y limpia el storage.
-
-```javascript
+// REMOVE - Delete order and lines
 orderStore.remove();
-```
 
-**Emits**: `order-removed` (solo si había orden)
-
-#### `clear()`
-Alias de `remove()`. Semántica más explícita.
-
-```javascript
+// CLEAR - Alias for remove
 orderStore.clear();
+
+// GETTERS
+orderStore.getActiveOrder();     // { symbol, entryPrice, contracts, side }
+orderStore.getLinesState();      // { slPrice, tpPrice, instrument, config }
+orderStore.hasActiveOrder();     // boolean
+
+// LIFECYCLE
+await orderStore.rehydrate();    // Restore from storage
+orderStore.persist();            // Save to storage (automatic)
+
+// EVENTS (Observable)
+orderStore.on('order-upserted', callback);
+orderStore.on('order-removed', callback);
+orderStore.on('rehydrated', callback);
+
+// DEBUG
+orderStore.debug();              // Print state to console
+orderStore.getSnapshot();        // Get full state object
 ```
 
-#### `getActiveOrder()`
-Obtiene la orden actual.
+### State Structure
 
 ```javascript
-const order = orderStore.getActiveOrder();
-// → { symbol: 'MNQ', entryPrice: 25923.5, ... } | null
-```
-
-#### `getLinesState()`
-Obtiene el estado de las líneas.
-
-```javascript
-const lines = orderStore.getLinesState();
-// → { slPrice, tpPrice, instrument, config, ... } | null
-```
-
-#### `hasActiveOrder()`
-Verifica si hay una orden activa.
-
-```javascript
-if (orderStore.hasActiveOrder()) {
-  // Restore lines
-}
-```
-
-#### `rehydrate()`
-Restaura el estado desde `chrome.storage.local`.
-
-```javascript
-const restored = await orderStore.rehydrate();
-if (restored) {
-  console.log('State restored!');
-}
-```
-
-**Returns**: `Promise<boolean>` - `true` si se restauró, `false` si no había datos
-
-**Emits**: `rehydrated` (si hay datos válidos)
-
-#### `persist()`
-Guarda el estado actual en storage.
-
-```javascript
-orderStore.persist();
-```
-
-**Note**: Llamado automáticamente por `upsert()`
-
-#### `on(event, callback)`
-Suscribe a eventos.
-
-```javascript
-orderStore.on('order-upserted', (data) => {
-  console.log('Order:', data.order);
-  console.log('Lines:', data.lines);
-});
-```
-
-**Events**:
-- `order-upserted` → `{ order, lines }`
-- `order-removed` → `undefined`
-- `rehydrated` → `{ order, lines }`
-
-#### `off(event, callback)`
-Desuscribe de eventos.
-
-```javascript
-const handler = (data) => console.log(data);
-orderStore.on('order-upserted', handler);
-orderStore.off('order-upserted', handler);
-```
-
-#### `debug()`
-Imprime el estado actual en consola.
-
-```javascript
-orderStore.debug();
-// [OrderStore] 🔍 Current State:
-// - Active Order: {...}
-// - Lines State: {...}
-// - Has Active Order: true
-// - Listeners: ['order-upserted', 'rehydrated']
-```
-
-#### `getSnapshot()`
-Obtiene un snapshot del estado (útil para debugging).
-
-```javascript
-const snapshot = orderStore.getSnapshot();
-// {
-//   activeOrder: {...},
-//   linesState: {...},
-//   hasActiveOrder: true,
-//   listeners: ['order-upserted', 'rehydrated']
-// }
-```
-
-## 🔄 Workflow Completo
-
-### 1. Inicialización (Page Load)
-
-```
-Extension loads
-  ↓
-OrderStore created (in-memory)
-  ↓
-orderStore.rehydrate() called
-  ↓
-Checks chrome.storage.local
-  ↓
-If data exists and < 24 hours old:
-  - Restore to in-memory state
-  - Emit 'rehydrated' event
-  ↓
-chartAccess.restoreFromStore()
-  ↓
-Lines drawn on chart
-```
-
-### 2. Order Creation (Network Event)
-
-```
-User places limit order
-  ↓
-NetworkInterceptor captures request
-  ↓
-Emits 'orderCreated' event
-  ↓
-main-content-v4.js handles event
-  ↓
-chartAccess.updateLines(...)
-  ↓
-chartAccess.persistToStore(...)
-  ↓
-orderStore.upsert(orderData, linesData)
-  ↓
-In-memory state updated
-  ↓
-orderStore.persist()
-  ↓
-Bridge saves to chrome.storage.local
-  ↓
-Emits 'order-upserted' event
-```
-
-### 3. Order Cancellation
-
-```
-User cancels order in TopstepX
-  ↓
-NetworkInterceptor detects DELETE
-  ↓
-Emits 'orderCancelled' event
-  ↓
-chartAccess.clearLines()
-  ↓
-orderStore.remove()
-  ↓
-In-memory state cleared
-  ↓
-Storage cleared via bridge
-  ↓
-Emits 'order-removed' event
-```
-
-### 4. Page Refresh
-
-```
-User hits F5
-  ↓
-Extension reloads
-  ↓
-orderStore.rehydrate()
-  ↓
-If valid data exists:
-  - Load from storage
-  - Restore in-memory state
-  - Emit 'rehydrated'
-  ↓
-chartAccess.restoreFromStore()
-  ↓
-Lines appear on chart
-  ↓
-User sees lines exactly as before
-```
-
-## 🌉 Bridge Pattern (MAIN ↔ ISOLATED)
-
-El OrderStore corre en el **MAIN world** (donde tiene acceso al chart), pero `chrome.storage` solo está disponible en el **ISOLATED world**. Usamos un **bridge** para comunicar:
-
-```
-MAIN World                    ISOLATED World
-------------                  --------------
-OrderStore                    Config Bridge
-    ↓                              ↓
-persist()                     chrome.storage.local.set()
-    ↓ postMessage                  ↓
-    ←──────────────────────────────
-         "TOPSTEP_SAVE_ORDER_STORE"
-
-rehydrate()                   chrome.storage.local.get()
-    ↓ postMessage                  ↓
-    ──────────────────────────────→
-         "TOPSTEP_LOAD_ORDER_STORE"
-    ←──────────────────────────────
-         "TOPSTEP_ORDER_STORE_LOADED"
-```
-
-### Messages
-
-#### Save Request
-```javascript
-// MAIN → ISOLATED
-window.postMessage({
-  type: 'TOPSTEP_SAVE_ORDER_STORE',
-  data: {
-    activeOrder: {...},
-    linesState: {...},
-    timestamp: Date.now()
-  }
-}, '*');
-```
-
-#### Load Request
-```javascript
-// MAIN → ISOLATED
-window.postMessage({
-  type: 'TOPSTEP_LOAD_ORDER_STORE'
-}, '*');
-
-// ISOLATED → MAIN
-window.postMessage({
-  type: 'TOPSTEP_ORDER_STORE_LOADED',
-  data: { activeOrder, linesState, timestamp }
-}, '*');
-```
-
-#### Clear Request
-```javascript
-// MAIN → ISOLATED
-window.postMessage({
-  type: 'TOPSTEP_CLEAR_ORDER_STORE'
-}, '*');
-```
-
-## 💾 Storage Format
-
-```javascript
-// Key: 'topstep_order_store'
-// Location: chrome.storage.local
 {
   activeOrder: {
     symbol: 'MNQ',
     entryPrice: 25923.5,
     contracts: 1,
-    side: 'long',
-    timestamp: 1702400000000
+    side: 'long',        // 'long' or 'short'
+    timestamp: Date.now()
   },
   linesState: {
     slPrice: 25903.5,
     tpPrice: 25948.0,
     entryPrice: 25923.5,
     contracts: 1,
+    side: 'long',
     instrument: {
       symbol: 'MNQ',
       tickSize: 0.25,
@@ -394,153 +118,387 @@ window.postMessage({
       slColor: '#FF0000',
       tpColor: '#00FF00',
       lineWidth: 1,
+      slLineStyle: 0,
+      tpLineStyle: 0,
       fontSize: 10,
-      // ... all visual config
+      // ... all config options
     },
-    timestamp: 1702400000000
+    timestamp: Date.now()
   },
-  timestamp: 1702400000000
+  timestamp: Date.now()
 }
 ```
 
-## ⏰ TTL (Time To Live)
+## 🔄 Lifecycle Events
 
-- **Duration**: 24 horas
-- **Check**: Al rehydratar
-- **Action**: Si `Date.now() - timestamp > 24h` → Ignora y limpia
+### 1. Order Creation
 
 ```javascript
-const age = Date.now() - stored.timestamp;
-if (age > 24 * 60 * 60 * 1000) {
-  console.log('Data expired');
-  orderStore.clearStorage();
+// User places limit order
+↓
+networkInterceptor detects order
+↓
+handleOrderData() processes it
+↓
+chartAccess.updateLines() draws lines
+↓
+chartAccess.persistToStore() saves state
+↓
+orderStore.upsert() updates in-memory
+↓
+orderStore.persist() saves to storage
+↓
+Event: 'order-upserted' emitted
+```
+
+### 2. Line Dragging
+
+```javascript
+// User drags SL line
+↓
+chartAccess.detectLineDrag() detects change
+↓
+chartAccess.persistToStore() with new positions
+↓
+orderStore.upsert() updates in-memory
+↓
+orderStore.persist() saves to storage
+↓
+lineDragSync syncs to TopstepX API
+```
+
+### 3. Order Cancellation
+
+```javascript
+// User cancels order
+↓
+networkInterceptor detects DELETE
+↓
+Event: 'orderCancelled' emitted
+↓
+chartAccess.clearLines() removes lines
+↓
+orderStore.remove() clears state
+↓
+orderStore.clearStorage() removes from storage
+↓
+Event: 'order-removed' emitted
+```
+
+### 4. Page Reload
+
+```javascript
+// Page loads
+↓
+OrderStore initialized
+↓
+main-content-v4.js calls rehydrateOrderStore()
+↓
+orderStore.rehydrate() requests data
+↓
+Bridge loads from chrome.storage.local
+↓
+orderStore receives data via postMessage
+↓
+Validates TTL (24 hours)
+↓
+chartAccess.restoreFromStore() redraws lines
+↓
+Event: 'rehydrated' emitted
+↓
+Lines appear exactly as before!
+```
+
+## 🔐 Storage Details
+
+### Location
+- **API**: `chrome.storage.local`
+- **Key**: `topstep_order_store`
+- **Scope**: Device-specific (not synced)
+- **Size**: ~1-2 KB
+- **TTL**: 24 hours (auto-cleanup)
+
+### Why `chrome.storage.local`?
+
+1. **Persistent**: Survives browser restarts
+2. **Private**: Never leaves your device
+3. **Fast**: Local access, no network
+4. **Reliable**: Part of Chrome API
+5. **Capacity**: 10 MB limit (plenty for our needs)
+
+### Security
+
+- **No server**: Data never sent externally
+- **Local only**: Stays on your machine
+- **Extension-scoped**: Only this extension can access
+- **TTL**: Auto-expires after 24 hours
+
+## 📝 Integration Points
+
+### `lib/chart-access.js`
+
+```javascript
+// After drawing lines
+persistToStore(slPrice, tpPrice, entryPrice, contracts, instrument, config, side) {
+  const orderData = { symbol, entryPrice, contracts, side };
+  const linesData = { slPrice, tpPrice, instrument, config };
+  window.orderStore.upsert(orderData, linesData);
+}
+
+// On page load
+async restoreFromStore() {
+  const linesData = window.orderStore.getLinesState();
+  if (linesData) {
+    this.updateLines(...linesData);
+    return true;
+  }
   return false;
+}
+
+// On clear
+clearLines() {
+  // ... remove lines from chart
+  window.orderStore.remove();
 }
 ```
 
-## 🎯 Use Cases
+### `content-scripts/main-content-v4.js`
 
-### 1. Day Trader
+```javascript
+// During initialization
+async function rehydrateOrderStore() {
+  const rehydrated = await window.orderStore.rehydrate();
+  if (rehydrated && chartAccess) {
+    const restored = await chartAccess.restoreFromStore();
+    if (restored) {
+      state.hasActiveOrder = true;
+      // Update local state
+    }
+  }
+}
+```
+
+### `content-scripts/config-bridge.js`
+
+```javascript
+// Listen for save requests (MAIN → ISOLATED)
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'TOPSTEP_SAVE_ORDER_STORE') {
+    chrome.storage.local.set({
+      'topstep_order_store': event.data.data
+    });
+  }
+});
+
+// Listen for load requests
+if (event.data.type === 'TOPSTEP_LOAD_ORDER_STORE') {
+  chrome.storage.local.get('topstep_order_store', (result) => {
+    window.postMessage({
+      type: 'TOPSTEP_ORDER_STORE_DATA',
+      data: result.topstep_order_store
+    }, '*');
+  });
+}
+```
+
+## 🎯 Benefits
+
+### User Experience
+- ✅ **Zero Data Loss**: Lines never disappear
+- ⚡ **Instant Restore**: Lines appear immediately on load
+- 🎯 **Professional**: Feels like native TopstepX behavior
+- 🔒 **Privacy**: Data stays local
+- 🗑️ **Auto-Cleanup**: 24h TTL prevents stale data
+
+### Developer Experience
+- 📊 **Observable**: Easy to react to changes
+- 🔄 **Deterministic**: Predictable behavior
+- 🏗️ **Scalable**: Clean architecture for new features
+- 🐛 **Debuggable**: Built-in debug methods
+- 🧪 **Testable**: Pure functions, mockable
+
+## 📊 Use Cases
+
+### Day Trader Workflow
+
 ```
 Morning:
-  - Configura líneas
-  - Toma coffee break
-  - Regresa → Líneas siguen ahí
+- Set lines for MNQ limit @ 25920
+- Risk: $300, TP: $600
 
-All day:
-  - Switch entre charts
-  - Líneas persisten
-  - No redibuja manualmente
+Lunch Break:
+- Close browser
+
+Afternoon:
+- Reopen TopstepX
+- Lines still there!
+- Limit executes
+- SL/TP ready to go
 ```
 
-### 2. Connection Loss
+### Multi-Chart Workflow
+
 ```
+Chart 1: MNQ with lines
+↓
+Switch to Chart 2: ES
+↓
+Back to Chart 1
+↓
+Lines persisted! No redrawing needed
+```
+
+### Connection Loss
+
+```
+Trading MNQ
+↓
 Internet drops
-  ↓
+↓
 Page reloads
-  ↓
-OrderStore rehydrates
-  ↓
-Lines restore
-  ↓
-Continúa trading sin interrupción
+↓
+Lines restored automatically
+↓
+Continue trading seamlessly
 ```
-
-### 3. Browser Restart
-```
-Close Chrome
-  ↓
-Come back hours later
-  ↓
-Open TopstepX
-  ↓
-Lines are there (< 24h)
-  ↓
-Ready to trade
-```
-
-### 4. Multi-Device NO
-```
-OrderStore usa chrome.storage.local
-  ↓
-NO se sincroniza entre devices
-  ↓
-Cada device tiene su propio estado
-  ↓
-Perfecto para trading focused
-```
-
-## 🔒 Security & Privacy
-
-### Local Only
-- Usa `chrome.storage.local` (no `.sync`)
-- No se envía a servidores externos
-- Device-specific
-- No sale del navegador
-
-### No PII
-- Solo precios y configuración
-- No tokens, passwords, o datos sensibles
-- Safe to store
-
-### Expiration
-- TTL de 24 horas previene stale data
-- Auto-cleanup
 
 ## 🐛 Debugging
 
 ### Console Commands
 
 ```javascript
-// Ver estado actual
-window.orderStore.debug();
+// Check if OrderStore is available
+typeof window.orderStore !== 'undefined'
 
-// Forzar rehydratación
-await window.orderStore.rehydrate();
+// Print current state
+window.orderStore.debug()
 
-// Ver snapshot
-const state = window.orderStore.getSnapshot();
-console.table(state);
+// Get snapshot
+const state = window.orderStore.getSnapshot()
+console.log(state)
 
-// Verificar storage directo
-chrome.storage.local.get('topstep_order_store', console.log);
+// Check if has active order
+window.orderStore.hasActiveOrder()
 
-// Limpiar manualmente
-window.orderStore.clear();
+// Manual rehydrate
+await window.orderStore.rehydrate()
+
+// Force clear
+window.orderStore.remove()
+
+// Subscribe to events
+window.orderStore.on('order-upserted', (data) => {
+  console.log('Order upserted:', data);
+});
 ```
 
-### Logs
+### Checking Storage
 
-Busca en consola:
+```javascript
+// In ISOLATED world (or popup)
+chrome.storage.local.get('topstep_order_store', (result) => {
+  console.log('Stored state:', result.topstep_order_store);
+});
+
+// Clear storage manually
+chrome.storage.local.remove('topstep_order_store');
 ```
-[OrderStore] 🏪 Store initialized
-[OrderStore] 📝 Upserting order: ...
-[OrderStore] 💾 Persist requested
-[OrderStore] 💧 Rehydrating from storage...
-[OrderStore] ✅ Rehydrated successfully
-[OrderStore] 🗑️ Removing order
+
+### Event Logging
+
+```javascript
+// Log all events
+['order-upserted', 'order-removed', 'rehydrated'].forEach(event => {
+  window.orderStore.on(event, (data) => {
+    console.log(`[OrderStore] Event: ${event}`, data);
+  });
+});
 ```
 
-## ✅ Benefits
+## ⚠️ Edge Cases
 
-1. **Zero Data Loss**: Refresh, close, reopen → Lines stay
-2. **Fast**: In-memory state = instant access
-3. **Observable**: React to changes anywhere
-4. **Deterministic**: Predictable behavior
-5. **TTL**: Auto-cleanup prevents stale data
-6. **Decoupled**: Components don't depend on each other
-7. **Professional**: Production-ready pattern
+### 1. TTL Expiration
 
-## 📚 Related Files
+**Scenario**: User returns after 25 hours
 
-- `lib/order-store.js` - Core OrderStore implementation
-- `content-scripts/config-bridge.js` - Storage bridge (ISOLATED world)
-- `lib/chart-access.js` - `persistToStore()`, `restoreFromStore()`
-- `content-scripts/main-content-v4.js` - `rehydrateOrderStore()`
+**Behavior**:
+- Rehydrate checks TTL
+- Data expired → rejected
+- Storage cleared automatically
+- No lines restored
+- User must place new order
+
+### 2. Corrupted Data
+
+**Scenario**: Storage contains invalid JSON
+
+**Behavior**:
+- Rehydrate catches parse error
+- Returns false
+- Storage cleared
+- Fresh start
+
+### 3. Multiple Tabs
+
+**Scenario**: User opens 2 TopstepX tabs
+
+**Behavior**:
+- Each tab has own OrderStore instance
+- Both share same storage
+- Last write wins (deterministic)
+- Recommended: Use only one tab
+
+### 4. Browser Private Mode
+
+**Scenario**: User trades in Incognito
+
+**Behavior**:
+- `chrome.storage.local` still works
+- Data cleared when incognito closes
+- Expected behavior for privacy mode
+
+## 🔮 Future Enhancements
+
+### Potential Features
+
+1. **Multiple Orders**: Store array instead of single order
+2. **Undo/Redo**: Stack-based state history
+3. **Cloud Sync**: Optional sync to user's TopstepX account
+4. **Export/Import**: JSON export for backup
+5. **Compression**: LZ-string for larger datasets
+
+### Scalability
+
+Current implementation handles:
+- ✅ 1 active order
+- ✅ 2 lines (SL/TP)
+- ✅ Full config (50+ properties)
+- ✅ < 2 KB storage
+
+To support 10 simultaneous orders:
+- Array-based storage
+- ~20 KB total
+- Still well under 10 MB limit
+
+## 📚 References
+
+### Inspiration
+
+- TopstepX internal OrderStore pattern
+- Redux principles (single source of truth)
+- React Context API (observable pattern)
+- LocalStorage + TTL pattern
+
+### Related Patterns
+
+- **Event Sourcing**: All changes tracked as events
+- **CQRS**: Command/Query separation
+- **Repository Pattern**: Abstract storage layer
+- **Observer Pattern**: Pub/sub for state changes
 
 ---
 
 **Version**: 4.6.0  
-**Pattern**: Inspired by TopstepX internal OrderStore  
+**Last Updated**: December 12, 2024  
 **Status**: ✅ Production Ready
 
