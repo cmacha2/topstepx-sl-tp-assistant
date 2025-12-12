@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TopstepX SL/TP Assistant",
-  "version": "4.5.4",
+  "version": "4.5.5",
   "description": "Visual Stop Loss and Take Profit lines with automatic risk calculation for TopstepX",
 
   "permissions": [

@@ -6,9 +6,9 @@
   const BUILD_TIME = new Date().toISOString().slice(0, 19).replace('T', ' ');
   console.log(`%c
   ╔══════════════════════════════════════════╗
-  ║  TopstepX SL/TP Assistant v4.5.4        ║
+  ║  TopstepX SL/TP Assistant v4.5.5        ║
   ║  BUILD: ${BUILD_TIME}                   ║
-  ║  STATUS: ✅ PERSISTENT LINES            ║
+  ║  STATUS: ✅ SMART LINE DISPLAY          ║
   ║  FEATURES: AUTO SYNC & RESTORE          ║
   ╚══════════════════════════════════════════╝
   `, 'color: #00ff00; font-weight: bold; font-size: 16px;');
@@ -430,10 +430,10 @@
       changed = true;
     }
 
-    // If we have complete order data from DOM, update lines
-    if (changed) {
-      // DOM data indicates there's likely an active order
-      // (will be validated in updateLines)
+    // If we have complete order data from DOM and there's an active order, update lines
+    if (changed && state.hasActiveOrder) {
+      // Only update lines if we already have an active order
+      // DOM alone doesn't activate lines - need network interceptor or restored order
       updateLines();
     }
   }
@@ -485,18 +485,16 @@
    * Calculate and update lines
    */
   function updateLines() {
-    if (!state.symbol || !state.price || !chartAccess || !chartAccess.chart) {
-      console.log('[TopstepX v4] ⏳ Waiting for data... Symbol:', state.symbol, 'Price:', state.price, 'Chart:', !!chartAccess?.chart);
+    // CRITICAL: Only show lines if there's a confirmed active order
+    // This prevents showing lines when just viewing the order ticket
+    if (!state.hasActiveOrder) {
+      console.log('[TopstepX v4] ⏸️ No active order - lines not shown');
       return;
     }
     
-    // If we have price and symbol data, assume there's an active order
-    // (unless explicitly marked as no active order by market order detection)
-    if (!state.hasActiveOrder) {
-      // If we reached here with data, it means DOM detected an order
-      // Set hasActiveOrder to true
-      state.hasActiveOrder = true;
-      console.log('[TopstepX v4] 📍 Order detected via DOM - enabling lines');
+    if (!state.symbol || !state.price || !chartAccess || !chartAccess.chart) {
+      console.log('[TopstepX v4] ⏳ Waiting for data... Symbol:', state.symbol, 'Price:', state.price, 'Chart:', !!chartAccess?.chart);
+      return;
     }
 
     try {
