@@ -5,302 +5,146 @@ All notable changes to the TopstepX SL/TP Visual Extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.6.0] - 2024-12-12
+## [4.5.1] - 2024-12-12
 
-### 🏪 OrderStore Pattern - Persistent Lines
+### 🐛 Critical Fix - Lines Not Showing
 
-#### Problem Solved
-- **Before**: Lines disappeared on page reload, browser restart, or navigation
-- **After**: Lines persist forever (up to 24h TTL) and restore automatically
+#### Fixed
+- **Lines Visibility Issue**: Fixed critical bug where lines weren't showing for existing orders
+- **hasActiveOrder Logic**: Improved order detection logic to work with existing orders
+- **DOM Detection**: Lines now properly show when DOM observer detects order data
+- **Market Order Prevention**: Still correctly prevents lines for market orders
 
-#### Core Principles
+#### Problem Identified
+The `hasActiveOrder` flag was blocking all lines unless an order was created AFTER loading the extension. This meant:
+- ❌ Existing orders didn't show lines
+- ❌ Page refreshes cleared the flag
+- ❌ DOM-detected orders were ignored
 
-Inspired by TopstepX internal OrderStore:
+#### Solution Implemented
+1. **Auto-detection**: When DOM provides price/symbol data, automatically enable lines
+2. **Smart Validation**: `hasActiveOrder` flag set automatically in `updateLines()`
+3. **Explicit Blocking**: Only market orders explicitly disable lines
+4. **State Management**: Better flag management in `handleOrderData()`
 
-1. **In-Memory**: State lives in RAM for instant access (zero I/O latency)
-2. **Event-Based**: Observable pattern with explicit events (add, update, remove)
-3. **Deterministic**: Same inputs always produce same state (predictable)
-4. **Rehydratable**: Survives page reloads via `chrome.storage.local`
-5. **Observable**: Multiple consumers can subscribe to state changes
+#### Technical Changes
+- Modified `updateLines()`: Auto-enables flag when valid data exists
+- Enhanced `handleOrderData()`: Explicitly sets flag for limit/stop orders
+- Updated `handleDOMData()`: Better comment about order detection
 
-#### API Methods
+#### User Experience
+- ✅ Lines now appear for existing orders
+- ✅ Refresh page → lines still work
+- ✅ Open order ticket → lines appear immediately
+- ✅ Market orders → correctly no lines (as intended)
 
-```javascript
-// UPSERT - Add or update order and lines
-orderStore.upsert(orderData, linesData);
+#### Files Modified
+- `content-scripts/main-content-v4.js` - Fixed order detection logic
 
-// REMOVE - Delete order and lines
-orderStore.remove();
-
-// CLEAR - Alias for remove
-orderStore.clear();
-
-// GETTERS
-orderStore.getActiveOrder();     // { symbol, entryPrice, contracts, side }
-orderStore.getLinesState();      // { slPrice, tpPrice, instrument, config }
-orderStore.hasActiveOrder();     // boolean
-
-// LIFECYCLE
-await orderStore.rehydrate();    // Restore from storage
-orderStore.persist();            // Save to storage (automatic)
-
-// EVENTS (Observable)
-orderStore.on('order-upserted', callback);
-orderStore.on('order-removed', callback);
-orderStore.on('rehydrated', callback);
-
-// DEBUG
-orderStore.debug();              // Print state to console
-```
-
-#### Workflow
-
-```
-1. Place order → Lines drawn → State saved
-   ↓
-2. Page refresh (F5) → State restored → Lines reappear
-   ↓
-3. Close browser → Come back later (< 24h) → Lines still there
-   ↓
-4. Drag line → State updated → Persisted automatically
-   ↓
-5. Cancel order → State cleared → Lines removed
-```
-
-#### Storage Details
-
-- **Location**: `chrome.storage.local` (device-specific)
-- **Key**: `topstep_order_store`
-- **Size**: ~1-2 KB per order
-- **TTL**: 24 hours (auto-cleanup)
-- **Privacy**: Local only, never synced to cloud
-
-#### What's Saved
-
-```javascript
-{
-  activeOrder: {
-    symbol: 'MNQ',
-    entryPrice: 25923.5,
-    contracts: 1,
-    side: 'long',
-    timestamp: Date.now()
-  },
-  linesState: {
-    slPrice: 25903.5,
-    tpPrice: 25948.0,
-    instrument: { tickSize, tickValue },
-    config: { colors, styles, labels, ... }
-  }
-}
-```
-
-#### Bridge Pattern
-
-Communication between MAIN world (OrderStore) and ISOLATED world (chrome.storage):
-
-```
-MAIN World              ISOLATED World
-----------              --------------
-OrderStore   <─────>   Config Bridge
-(chart access)         (storage access)
-
-Messages:
-- TOPSTEP_SAVE_ORDER_STORE   → Save to storage
-- TOPSTEP_LOAD_ORDER_STORE   → Load from storage
-- TOPSTEP_CLEAR_ORDER_STORE  → Clear storage
-```
-
-#### Integration Points
-
-**`lib/order-store.js`** (NEW):
-- Core OrderStore class with in-memory state
-- Event system for observability
-- Persist/rehydrate methods
-- TTL validation (24 hours)
-
-**`lib/chart-access.js`**:
-- `persistToStore()` - Save after drawing/dragging lines
-- `restoreFromStore()` - Restore lines on page load
-- `clearLines()` - Remove from store on cancel
-
-**`content-scripts/main-content-v4.js`**:
-- `rehydrateOrderStore()` - Restore on initialization
-- Calls `chartAccess.restoreFromStore()` if data exists
-
-**`content-scripts/config-bridge.js`**:
-- Storage handlers for OrderStore messages
-- Bridges MAIN world to ISOLATED world
-- Handles save/load/clear operations
-
-#### Benefits
-
-- ✅ **Zero Data Loss**: Lines never disappear on reload
-- ⚡ **Instant Restore**: Lines appear immediately (< 100ms)
-- 🎯 **Professional UX**: Seamless, production-ready experience
-- 🔒 **Local Privacy**: Data never leaves your device
-- 🗑️ **Auto-Cleanup**: 24h TTL prevents stale data
-- 📊 **Observable**: React to changes anywhere in code
-- 🏗️ **Scalable Pattern**: Clean architecture for future features
-
-#### Use Cases
-
-**Day Trader**: Set lines in morning, take breaks, lines persist all day
-
-**Connection Loss**: Internet drops, page reloads, lines restore automatically
-
-**Browser Restart**: Close Chrome, come back hours later, lines waiting
-
-**Multi-Chart**: Switch between instruments, lines stay in place
-
-#### Files Created/Modified
-
-- NEW: `lib/order-store.js` - Core OrderStore implementation
-- NEW: `ORDERSTORE-PATTERN.md` - Complete architecture documentation
-- Modified: `content-scripts/config-bridge.js` - Added storage handlers
-- Modified: `lib/chart-access.js` - Added persist/restore methods
-- Modified: `content-scripts/main-content-v4.js` - Added rehydration
-- Modified: `manifest.json` - Added order-store.js, version bump
-
-#### Impact
-
-- 🎯 **Game Changer**: Professional-grade state management
-- 🚀 **User Experience**: Lines persist like native TopstepX UI
-- 🔒 **Reliability**: Never lose your setup again
-- 📊 **Architecture**: Scalable pattern for future features
-- ⚡ **Performance**: In-memory = instant operations
-
-#### Debugging
-
-```javascript
-// Console commands
-window.orderStore.debug();
-window.orderStore.getSnapshot();
-await window.orderStore.rehydrate();
-window.orderStore.hasActiveOrder();
-```
+---
 
 ## [4.5.0] - 2024-12-12
 
-### 🔄 Line Drag Sync - Auto-Update TopstepX Platform
+### 🚀 API Integration & Order Persistence
 
-#### Added - Line Drag Sync Feature
-- **Drag & Sync**: When you drag SL/TP lines on the chart, automatically updates TopstepX platform brackets
-- **Smart Debouncing**: 1-second delay prevents spam API calls while dragging
-- **Auto Token Capture**: Uses `localStorage` token for seamless authentication
-- **Account ID Tracking**: Automatically captures account ID from order requests
-- **Real-time Calculation**: Converts dragged line positions to risk/profit dollars
-- **Enable/Disable Toggle**: Complete control via popup checkbox
+#### Added - API Integration
+- **Position Brackets API**: Automatic updates to TopstepX position brackets endpoint
+- **Debouncing System**: Smart debouncing (500ms local + 1000ms API) prevents excessive requests
+- **API Client Module**: New `lib/api-client.js` for centralized API communication
+- **Authorization Handling**: Automatic token retrieval from localStorage
+- **Account ID Management**: Configurable account ID via localStorage or API
 
-#### How It Works
-```
-1. User places limit/stop order
-   ↓
-2. Extension draws SL/TP lines on chart
-   ↓
-3. User drags a line to new position
-   ↓
-4. Extension detects position change
-   ↓
-5. After 1 second (debounce), calculates new risk/profit
-   ↓
-6. Makes POST to /TradingAccount/setPositionBrackets
-   ↓
-7. TopstepX platform brackets updated
-```
+#### Added - Order Persistence
+- **Order Context Module**: New `lib/order-context.js` for state management
+- **localStorage Integration**: Orders persist across page reloads and browser restarts
+- **Auto-Restore**: Lines automatically restore from saved state on page load
+- **Order Lifecycle**: Full tracking of order states (pending, active, filled, cancelled)
+- **24-Hour Retention**: Automatic cleanup of old orders
 
-#### New Components
-- **`lib/line-drag-sync.js`**: Core sync module
-  - `LineDragSync` class with debouncing
-  - Token retrieval from `localStorage`
-  - Risk/profit calculation from line positions
-  - API communication with TopstepX
-  - Custom events for status tracking
+#### Enhanced - Drag & Drop
+- **API Updates on Drag**: Position brackets update automatically after dragging lines
+- **Debounced Updates**: Smart timing prevents API spam while dragging
+- **Real-time Labels**: Immediate visual feedback during drag operations
+- **Persistent Changes**: Dragged positions saved to localStorage and API
 
-#### Chart Integration
-- **`lib/chart-access.js`**: Drag detection
-  - `detectLineDrag()` method to track position changes
-  - Compares current vs last position every 500ms
-  - Triggers `syncWithDebounce()` when changed
-  - Resets tracking on line clear
+#### Technical Implementation
+- **APIClient Class**:
+  - Debounced API calls with configurable delay
+  - Token and account ID management
+  - Error handling and status reporting
+  - Support for `setPositionBrackets` endpoint
 
-#### Network Integration
-- **`lib/network-interceptor.js`**: Account ID capture
-  - Extracts `accountId` from order requests
-  - Passes to `lineDragSync` module automatically
-  - No manual configuration needed
+- **OrderContext Class**:
+  - Full order state management
+  - localStorage persistence layer
+  - Event subscription system
+  - Order validation and cleanup
 
-#### Configuration
-- **`lib/storage-manager.js`**: New settings
-  - `enableLineDragSync` (boolean): Enable/disable feature
-  - `syncDebounceDelay` (number): Delay in ms (default: 1000)
+- **Chart Access Integration**:
+  - Drag event listeners with debouncing
+  - Automatic API updates after drag end
+  - Order context synchronization
+  - Line restoration from persisted state
 
-#### UI Updates
-- **`popup/popup.html`**: New sync section
-  - Checkbox to enable/disable sync
-  - Helpful info box explaining workflow
-  - Clean, informative design
-- **`popup/popup.css`**: Info box styling
-- **`popup/popup.js`**: Sync toggle handling
+#### User Experience
+- ✅ Drag lines → API automatically updates position brackets
+- ✅ Refresh page → Lines restore to last position
+- ✅ Navigate away → State persists in localStorage
+- ✅ Cancel order → Lines clear and storage updates
+- ✅ Browser restart → Orders restore if within 24 hours
 
 #### API Endpoint
 ```
 POST https://userapi.topstepx.com/TradingAccount/setPositionBrackets
-Headers:
-  - Authorization: Bearer {token from localStorage}
-  - Content-Type: application/json
-Body: 
-  {
-    "accountId": 15379279,
-    "autoApply": true,
-    "risk": 300,      // Calculated from SL line position
-    "toMake": 600     // Calculated from TP line position
-  }
+Body: {
+  accountId: number,
+  autoApply: boolean,
+  risk: number,      // SL in dollars
+  toMake: number     // TP in dollars
+}
 ```
 
-#### Benefits
-- ✅ **One Action, Two Updates**: Drag line → Both chart and platform sync
-- ✅ **No Manual Entry**: TopstepX brackets update automatically
-- ✅ **Visual First**: See your risk on chart, then platform follows
-- ✅ **Smart Debounce**: Smooth dragging without API spam
-- ✅ **Token from Storage**: No login prompts or manual auth
-- ✅ **Opt-in Feature**: Disabled by default, enable when ready
+#### Setup Required
+1. Set account ID: `localStorage.setItem('topstep_account_id', 'YOUR_ID')`
+2. Token automatically retrieved from TopstepX login
+3. Extension handles the rest automatically
 
-#### Technical Details
-- Runs in `MAIN` world for full chart API access
-- Uses TradingView's `getShapeById()` to track line positions
-- Debounces with `setTimeout` and `clearTimeout`
-- Captures auth token from `localStorage.getItem('token')`
-- Account ID auto-captured from order creation requests
-- Calculates risk using: `(entryPrice - slPrice) / tickSize * tickValue * contracts`
+#### Documentation
+- `API-INTEGRATION-GUIDE.md` - Complete technical guide
+- `QUICK-REFERENCE-API.md` - Quick setup and troubleshooting
+- `TEST-API-INTEGRATION.js` - Comprehensive test suite
 
-#### Files Modified/Created
-- NEW: `lib/line-drag-sync.js` - Core sync module
-- Modified: `lib/chart-access.js` - Drag detection
-- Modified: `lib/network-interceptor.js` - Account ID capture
-- Modified: `lib/storage-manager.js` - New config options
-- Modified: `popup/popup.html` - Sync UI section
-- Modified: `popup/popup.css` - Info box styles
-- Modified: `popup/popup.js` - Sync toggle handling
-- Modified: `content-scripts/main-content-v4.js` - Config application
-- Modified: `manifest.json` - Added module and permissions
+#### Files Added
+- `lib/api-client.js` - API communication layer
+- `lib/order-context.js` - Order state management
+- `API-INTEGRATION-GUIDE.md` - Full documentation
+- `QUICK-REFERENCE-API.md` - Quick reference
+- `TEST-API-INTEGRATION.js` - Testing utilities
 
-#### Impact
-- 🎯 **Game Changer**: Seamless integration between visual lines and platform
-- 🚀 **Workflow Improvement**: One drag updates everything
-- 🔒 **Secure**: Uses existing TopstepX auth, no new credentials
-- 📊 **Accurate**: Calculates exact risk/profit from line positions
-- ⚡ **Fast**: 1-second debounce feels instant but prevents spam
+#### Files Modified
+- `manifest.json` - Added new library references
+- `content-scripts/main-content-v4.js` - Integrated API and persistence
+- `lib/chart-access.js` - Added drag handlers and API calls
+- `ui/drag-handler.js` - Enhanced with API support
+
+#### Future Enhancements
+- Auto-detect account ID from API responses
+- Retry logic for failed API calls
+- Order history tracking
+- Multi-tab synchronization
+- User-facing error notifications
+
+---
 
 ## [4.4.2] - 2024-12-11
 
 ### 🗑️ Order Lifecycle Management
 
 #### Added
-- **Auto Clear on Cancel** - Lines automatically removed when order is cancelled
-- **Order Cancellation Detection** - Intercepts DELETE requests to `/Order/cancel/`
-- **Order ID Tracking** - Verifies cancelled order matches active order
-- **State Management** - Updates `hasActiveOrder` flag on cancellation
+- **Auto Clear on Cancel**: Lines automatically removed when order is cancelled
+- **Order Cancellation Detection**: Intercepts DELETE requests to `/Order/cancel/`
+- **Order ID Tracking**: Verifies cancelled order matches active order
+- **State Management**: Updates `hasActiveOrder` flag on cancellation
 
 #### Technical Implementation - Order Cancellation
 - Intercepts DELETE requests in both fetch and XHR
@@ -348,205 +192,386 @@ Chart is clean
 
 ### 🐛 Critical BugFix
 
-#### Problem
-- Error: "The specified value 'undefined' cannot be parsed"
-- UI settings not saving/applying correctly
-- `populateForm()` failing on line 104
-- Caused by missing config fields when loading old configurations
+#### Fixed
+- **Undefined Value Parse Error**: Fixed `"undefined" cannot be parsed` error when loading popup with old configurations
+- **Config Merging**: Storage manager now automatically merges saved configs with defaults
+- **Safe Value Assignment**: Added helper functions to prevent undefined values in form inputs
+- **DOM Validation**: Added element existence checks with detailed error logging
 
-#### Root Cause
-- Content scripts in `MAIN` world don't have direct `chrome.storage` access
-- New config options added (line styles, opacity, etc.) weren't in old saved configs
-- Form inputs received `undefined` values
-- HTML input validation failed on undefined
-
-#### Solution 1: Config Bridge
-- Created `content-scripts/config-bridge.js` running in `ISOLATED` world
-- Bridge has `chrome.storage` access
-- Communicates with `MAIN` world via `window.postMessage`
-- Handles config load/save requests
-- Forwards between popup and main content script
-
-#### Solution 2: Default Merging
-- Modified `storage-manager.js` `getConfig()`:
-  ```javascript
-  const savedConfig = result[this.configKey] || {};
-  const mergedConfig = { ...DEFAULT_CONFIG, ...savedConfig };
-  resolve(mergedConfig);
-  ```
-- Always merges saved config with defaults
-- Ensures all new fields have values
-- Backward compatible with old configs
-
-#### Solution 3: Safe Setters
-- Created `safeSet()` and `safeCheck()` helpers in `popup.js`:
-  ```javascript
-  const safeSet = (element, value, defaultValue) => {
-    if (element) {
-      element.value = value !== undefined && value !== null ? value : defaultValue;
-    }
-  };
-  ```
-- Gracefully handles undefined/null values
-- Provides fallback defaults
-- Prevents form validation errors
-
-#### Files Modified
-- `lib/storage-manager.js` - Config merging logic
-- `popup/popup.js` - Safe setters, improved error handling
-- `content-scripts/config-bridge.js` - Communication bridge (NEW)
-- `manifest.json` - Added config-bridge to ISOLATED world
-- `STORAGE-FIX-v4.4.1.md` - Complete fix documentation (NEW)
-
-#### Impact
-- ✅ All settings save/load correctly
-- ✅ No more undefined errors
-- ✅ Backward compatible with v4.3.x configs
-- ✅ New options work perfectly
-- ✅ Form validation passes
-
-## [4.4.0] - 2024-12-10
-
-### 🎨 Full UI Customization
-
-#### Added - Complete Visual Control
-- **Line Style Options**: Solid, Dotted, Dashed for SL and TP independently
-- **Line Opacity**: Adjustable from 0-100% with live preview
-- **Font Size**: Text size control (8-20px) with slider
-- **Label Format**: Choose between "SL/TP", "Stop/Target", "Risk/Reward", or Custom
-- **Custom Prefixes**: Define your own text for SL and TP labels
-- **Display Toggles**: Show/hide decimals, contracts, emojis, bold text
-- **Auto-hide Market Orders**: Option to hide lines for market orders (type: 2)
-- **Sound Alerts**: Optional audio notification when lines are drawn
-
-#### Configuration Options Added
-```javascript
-// Line Visual Settings
-slLineStyle: 0,           // 0=Solid, 1=Dotted, 2=Dashed
-tpLineStyle: 0,
-lineOpacity: 100,         // 0-100%
-fontSize: 10,             // 8-20px
-
-// Label Settings
-labelFormat: 'sl-tp',     // 'sl-tp', 'stop-target', 'risk-reward', 'custom'
-slPrefix: 'SL',           // Custom text for SL label
-tpPrefix: 'TP',           // Custom text for TP label
-showLabels: true,
-fontBold: false,
-useEmojis: false,
-showDecimals: false,
-showContracts: true,
-
-// Behavior
-autoHideOnMarket: true,
-playSound: false,
-persistLines: true,
-autoUpdate: true
-```
-
-#### UI Improvements
-- Organized popup into logical sections:
-  - Risk Settings
-  - Line Colors  
-  - Line Style
-  - Label Settings
-  - Display Options
-  - Behavior Options
-- Added sliders with live value display
-- Color pickers with preview swatches
-- Dropdown selectors for line styles
-- Checkbox groups for toggles
-- Help text for complex options
-- Clean, dark, professional design
-
-#### Technical Updates
-- `lib/chart-access.js`:
-  - `createLine()` accepts all style options
-  - `formatLabel()` for dynamic label generation
-  - Applies opacity, font size, line style
-- `lib/storage-manager.js`:
-  - Expanded `DEFAULT_CONFIG` with all new options
-  - Validation for new fields
-- `popup/popup.html`:
-  - New input controls for all options
-  - Improved layout and organization
-- `popup/popup.css`:
-  - Slider styles
-  - Color preview styles
-  - Responsive design updates
-
-#### Files Modified
-- `lib/chart-access.js` - Visual customization logic
-- `lib/storage-manager.js` - Extended configuration
-- `popup/popup.html` - Complete UI redesign
-- `popup/popup.css` - New component styles
-- `popup/popup.js` - Event handling for new controls
-- `manifest.json` - Version bump to 4.4.0
-
-#### Impact
-- 🎨 **Full Control**: Customize every visual aspect
-- 📊 **Professional Look**: Match your trading style
-- 🎯 **Clarity**: Choose label format that makes sense to you
-- ⚡ **Flexible**: Enable/disable features as needed
-- 🎭 **Personal**: Create your own look and feel
-
-## [4.3.0] - 2024-12-09
-
-### 🎯 Multi-Order Type Support
+#### Enhanced
+- **Backward Compatibility**: Old configs (pre-v4.4.0) now load seamlessly with new defaults
+- **Forward Compatibility**: New fields automatically added when missing
+- **Storage Manager**: Enhanced `getConfig()` and `updateConfig()` with triple-merge strategy
+- **Logging**: Added comprehensive debug logging for config loading
 
 #### Added
-- **Limit Orders** (type: 1) - Uses `limitPrice`
-- **Market Orders** (type: 2) - Immediate execution
-- **Stop Orders** (type: 4) - Uses `stopPrice`
+- **Migration Script**: Optional manual migration utility (`scripts/migrate-config.js`)
+- **BugFix Documentation**: Detailed analysis in `BUGFIX-UNDEFINED-VALUES.md`
 
-#### Side Detection Logic
-- **Positive `positionSize`** (1, 2, 3...) → LONG/BUY
-- **Negative `positionSize`** (-1, -2, -3...) → SHORT/SELL
-- **Absolute value** = Number of contracts
-
-#### Line Placement Logic
-- **Long Orders**: SL below entry, TP above entry
-- **Short Orders**: SL above entry, TP below entry
-- **Reference Price**: Uses `limitPrice` or `stopPrice` (not market price)
-
-#### Files Modified
-- `lib/network-interceptor.js` - Added stop and market order detection
-- `content-scripts/main-content-v4.js` - Side-based line placement
-- `lib/calculations.js` - Updated for all order types
+#### Technical
+- **popup.js**: Added `safeSet()`, `safeCheck()`, `safeText()` helpers
+- **storage-manager.js**: Enhanced config merging with spread operators
+- **DOM Caching**: Added validation to detect missing elements
 
 #### Impact
-- ✅ Works with all order types
-- ✅ Correct SL/TP placement based on side
-- ✅ Accurate risk calculation for any entry method
+- ✅ Popup loads without errors on upgrade from v4.3.x
+- ✅ No data loss from existing configurations
+- ✅ Proper defaults for all new v4.4.0 fields
+- ✅ Production-ready upgrade path
 
-## [4.2.0] - 2024-12-08
+## [4.4.0] - 2024-12-11
 
-### 🔧 Initial Release - Core Features
+### 🎨 Full Customization Update
 
-#### Features
-- Network interception for order detection
-- Dynamic SL/TP line rendering on TradingView chart
-- Risk calculation engine
-- Instrument database with tick values
-- Popup configuration UI
-- Chrome storage persistence
-- Auto-clear on order modification
+#### Added - Visual Settings
+- **Line Style Options**: Solid, Dotted, or Dashed lines (separate for SL/TP)
+- **Line Opacity**: Adjustable transparency (0-100%)
+- **Font Size Control**: Configurable label font size (8-16px)
+- **Label Format Options**: 
+  - Compact: `SL -$100 (1x)`
+  - Full: `STOP LOSS: -$100.00 (1x)`
+  - Minimal: `SL -$100`
+- **Custom Text Labels**: Customize SL/TP prefix text (any language/symbols)
+- **Emoji Support**: Optional emoji icons (🛑 🎯)
 
-#### Architecture
-- Content scripts in MAIN world for chart access
-- Network interceptor for API monitoring
-- Modular design with separate libraries
-- Event-driven communication
+#### Added - Display Options
+- **Decimal Control**: Toggle decimal places on dollar amounts
+- **Contract Display**: Toggle contract count visibility
+- **Bold Text**: Make labels bold for better visibility
+- **Auto-hide Market Orders**: Automatically hide lines for market orders
+
+#### Added - Configuration
+- **Complete Dashboard**: All settings now accessible via UI
+- **25+ Configuration Options**: Every aspect fully customizable
+- **Preset Examples**: 5 professional configuration presets
+- **Configuration Guide**: Complete documentation (CONFIGURATION-GUIDE.md)
+
+#### Enhanced
+- **Format Label Function**: Smart label formatting based on config
+- **Dynamic Updates**: Labels update using configured format
+- **Storage Manager**: Extended with all new config options
+- **Popup UI**: Reorganized with subsections and better layout
+
+#### Improved
+- **CSS Styling**: Added styles for select dropdowns and text inputs
+- **Form Validation**: All new fields properly validated
+- **Persistence**: All settings saved and restored correctly
+- **Code Structure**: Clean, maintainable, production-ready
+
+#### Technical
+- **chart-access.js**: Added `formatLabel()` function
+- **storage-manager.js**: Extended DEFAULT_CONFIG with 15+ new options
+- **popup.html**: Reorganized into logical subsections
+- **popup.css**: New styles for selects, subsections, and inputs
+- **popup.js**: Updated to handle all new configuration fields
+
+### Configuration Options Summary
+
+**Visual - Lines:**
+- Line width (1-10px)
+- Line style (solid/dotted/dashed) - separate for SL/TP
+- Line opacity (0-100%)
+- Line colors
+
+**Visual - Text:**
+- Font size (8-16px)
+- Font weight (normal/bold)
+- Label format (compact/full/minimal)
+- Custom prefix text (SL/TP)
+- Emoji icons toggle
+
+**Display:**
+- Show labels toggle
+- Show decimals toggle
+- Show contracts toggle
+- Bold text toggle
+- Use emojis toggle
+
+**Behavior:**
+- Persist lines across sessions
+- Auto-update on price change
+- Auto-hide for market orders
+- Play sound alert
+
+### Presets Included
+
+1. **Minimalist Trader**: Ultra-clean, minimal distraction
+2. **Professional Trader**: Balanced visibility and info
+3. **Beginner Trader**: Maximum information, high visibility
+4. **Day Trader**: Fast execution, auto-clearing
+5. **Swing Trader**: Visual emphasis, persistent lines
+
+### Documentation
+- ✅ CONFIGURATION-GUIDE.md: Complete configuration reference
+- ✅ 5 detailed preset examples
+- ✅ Visual comparisons (line width, font size, formats)
+- ✅ Best practices for different trading styles
+- ✅ 25+ configuration examples
+
+### Breaking Changes
+None - Fully backward compatible. Existing configs will use new defaults for added features.
 
 ---
 
-## Version History Summary
+## [4.3.1] - 2024-12-11
 
-| Version | Date | Key Feature |
-|---------|------|-------------|
-| 4.5.0 | 2024-12-12 | 🔄 Line Drag Sync |
-| 4.4.2 | 2024-12-11 | 🗑️ Auto Clear on Cancel |
-| 4.4.1 | 2024-12-11 | 🐛 Storage Fix |
-| 4.4.0 | 2024-12-10 | 🎨 Full Customization |
-| 4.3.0 | 2024-12-09 | 🎯 Multi-Order Support |
-| 4.2.0 | 2024-12-08 | 🔧 Initial Release |
+### 🎯 Minimalist UI Update
+
+#### Changed
+- **Line Width**: Default changed from 3px to 1px (minimalist)
+- **Font Size**: Reduced from 13px to 10px
+- **Font Weight**: Changed from bold to normal (thinner)
+- **Label Format**: Simplified from full to compact
+  - Before: `🛑 STOP LOSS: -$100.00 (1x)`
+  - After: `SL -$100 (1x)`
+- **Decimal Display**: Changed from .00 to whole numbers
+
+#### Removed
+- Emoji icons from default labels (optional now)
+- Heavy bold styling
+
+---
+
+## [4.3.0] - 2024-12-11
+
+### 🎯 Complete Order Detection System
+
+#### Added
+- **Full Order Type Support**:
+  - Limit orders (type: 1)
+  - Market orders (type: 2)
+  - Stop orders (type: 4)
+- **Smart Position Logic**: Correct SL/TP placement based on LONG/SHORT
+- **Position Size Detection**: Uses `positionSize` field (+/- for LONG/SHORT)
+- **Market Order Handling**: Lines don't show for market orders
+
+#### Enhanced
+- **Network Interceptor**: Detects order type from `type` field
+- **Logging System**: Ultra-detailed console logs
+- **Side Detection**: Correctly identifies LONG vs SHORT from positionSize
+
+#### Fixed
+- Lines now appear in correct positions for SHORT positions
+- Stop orders properly detected and handled
+- Contract quantity correctly extracted from absolute value
+
+---
+
+## [4.2.0] - 2024-12-10
+
+### 🔄 Dynamic Updates
+
+#### Added
+- **Real-time Value Updates**: Lines update when orders are dragged
+- **Dynamic Labels**: Dollar amounts recalculate in real-time
+- **Contract Display**: Shows quantity on labels
+
+---
+
+## [1.0.0] - 2024-12-10
+
+### 🎉 Initial Release
+
+#### Added
+- **Visual SL/TP Lines**: Display Stop Loss and Take Profit lines on TradingView charts
+- **Risk-Based Calculations**: Automatic contract sizing based on account risk
+- **Drag-to-Adjust**: Manually adjust SL/TP levels by dragging chart lines
+- **Multi-Instrument Support**: Support for 8 futures instruments
+  - Micros: MNQ, MES, MYM, M2K
+  - Full-size: ES, NQ, YM, RTY
+- **Configuration UI**: User-friendly popup for settings management
+- **Risk Management Modes**:
+  - Percentage of account (e.g., 2% of $50,000)
+  - Fixed dollar amount (e.g., $500 per trade)
+- **Risk:Reward Ratios**: Automatic TP calculation based on SL (e.g., 1:2 ratio)
+- **Real-Time Updates**: Automatic recalculation on instrument/price changes
+- **Persistent Settings**: Configuration saved via Chrome Storage sync
+- **Cross-Frame Communication**: Secure messaging between parent and iframe
+- **Entry Line**: Visual reference for entry price level
+
+#### Core Components
+- `CalculationEngine`: Risk and P&L calculation engine
+- `InstrumentDatabase`: Complete tick specifications for all supported instruments
+- `StorageManager`: Configuration persistence and defaults
+- `MessageBridge`: Cross-frame communication system
+- `LineRenderer`: TradingView chart line drawing
+- `DragHandler`: Interactive line manipulation
+- `main-content.js`: TopstepX DOM integration
+- `iframe-content.js`: TradingView Widget integration
+- `popup.js`: Settings UI controller
+
+#### Features
+- ✅ Automatic contract quantity calculation
+- ✅ Visual line colors customization
+- ✅ Line width adjustment
+- ✅ Auto-update on price changes
+- ✅ Support for long and short positions
+- ✅ Real-time P&L recalculation on drag
+- ✅ Console logging for debugging
+- ✅ Error handling and recovery
+
+#### Documentation
+- README.md: Complete user and technical documentation
+- QUICKSTART.md: 5-minute setup guide
+- DEVELOPMENT.md: Developer guide with debugging tips
+- PROJECT-STRUCTURE.md: Architecture and file organization
+- Icon generation tool with instructions
+
+#### Technical Details
+- Manifest V3 compliant
+- Pure vanilla JavaScript (no dependencies)
+- ~3,600 lines of code across 13 JavaScript files
+- Iframe injection using `match_origin_as_fallback`
+- TradingView Widget API integration
+- Chrome Storage API for persistence
+- PostMessage API for cross-frame communication
+- MutationObserver for DOM change detection
+
+### Known Limitations
+- Only works on TopstepX.com platform
+- Requires TradingView chart to be loaded
+- Manual order placement (no auto-execution)
+- Limited to supported instruments (8 futures contracts)
+- Desktop Chrome only (no mobile support)
+
+### Security
+- ✅ No external network requests
+- ✅ All data stored locally
+- ✅ Origin validation on all messages
+- ✅ Minimal permissions requested
+- ✅ No credentials or sensitive data handling
+
+---
+
+## [Unreleased]
+
+### Planned Features (Future Versions)
+
+#### v1.1.0 (Enhancement Release)
+- [ ] Additional instruments (CL, GC, etc.)
+- [ ] Sound alerts for price approaching SL/TP
+- [ ] Keyboard shortcuts for line adjustment
+- [ ] Dark/light theme for popup
+- [ ] Export/import configuration
+- [ ] Multiple risk profiles
+
+#### v1.2.0 (Advanced Features)
+- [ ] Trade journal integration
+- [ ] Screenshot capture on trade setup
+- [ ] Performance statistics tracking
+- [ ] Risk heatmap overlay
+- [ ] Multi-timeframe line display
+- [ ] Support/resistance integration
+
+#### v2.0.0 (Major Update)
+- [ ] Bracket order integration (auto-submit SL/TP orders)
+- [ ] TopstepX API integration
+- [ ] OCO (One-Cancels-Other) functionality
+- [ ] Advanced order types support
+- [ ] Multi-account management
+- [ ] Cloud sync for settings
+
+#### Future Considerations
+- [ ] Support for other trading platforms
+- [ ] Mobile/tablet version
+- [ ] Chrome Web Store publishing
+- [ ] Auto-update mechanism
+- [ ] Telemetry (opt-in) for improvements
+- [ ] Community feature requests
+
+---
+
+## Version History
+
+### Version Numbering
+- **Major (X.0.0)**: Breaking changes, major new features
+- **Minor (1.X.0)**: New features, backward compatible
+- **Patch (1.0.X)**: Bug fixes, minor improvements
+
+### Release Schedule
+- **Patch releases**: As needed for critical bugs
+- **Minor releases**: Monthly (feature additions)
+- **Major releases**: Quarterly (significant changes)
+
+---
+
+## How to Update
+
+### For Users
+1. Download latest version
+2. Replace extension folder
+3. Go to `chrome://extensions/`
+4. Click "Reload" on the extension
+5. Verify new version number
+
+### For Developers
+1. Update version in `manifest.json`
+2. Update this CHANGELOG.md
+3. Test all functionality
+4. Create git tag: `git tag v1.0.0`
+5. Push to repository
+
+---
+
+## Feedback & Issues
+
+We welcome feedback and bug reports!
+
+**Found a bug?**
+- Check console for error messages
+- Note your Chrome version
+- Note the instrument/settings used
+- Document steps to reproduce
+
+**Feature requests?**
+- Describe the use case
+- Explain expected behavior
+- Include mockups if applicable
+
+---
+
+## Credits
+
+### Built With
+- Chrome Extension Manifest V3
+- TradingView Charting Library API
+- Vanilla JavaScript (ES6+)
+
+### Inspiration
+- Traders needing visual risk management
+- TopstepX evaluation account challenges
+- TradingView's powerful charting capabilities
+
+---
+
+## License
+
+This project is for personal use. Always ensure compliance with:
+- TopstepX Terms of Service
+- TradingView Terms of Service
+- Chrome Web Store Developer Program Policies
+
+---
+
+## Disclaimer
+
+**Trading involves substantial risk of loss.**
+
+This extension is:
+- ✅ A visual aid for risk management
+- ✅ An educational tool
+- ✅ A calculator for position sizing
+
+This extension is NOT:
+- ❌ Financial advice
+- ❌ A guarantee of profits
+- ❌ An auto-trading system
+- ❌ A replacement for proper risk management
+
+**Always verify calculations independently before placing trades.**
+
+Use at your own risk. The developers assume no liability for trading losses.
+
+---
+
+*Last updated: December 10, 2024*

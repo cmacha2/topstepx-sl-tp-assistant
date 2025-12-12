@@ -72,41 +72,6 @@
     }, '*');
   });
 
-  // Listen for OrderStore messages from MAIN world
-  window.addEventListener('message', (event) => {
-    if (event.source !== window) return;
-    
-    // Save OrderStore state
-    if (event.data.type === 'TOPSTEP_SAVE_ORDER_STORE') {
-      console.log('[Config Bridge] 💾 Saving OrderStore to local storage');
-      chrome.storage.local.set({
-        'topstep_order_store': event.data.data
-      }, () => {
-        console.log('[Config Bridge] ✅ OrderStore saved');
-      });
-    }
-    
-    // Load OrderStore state
-    else if (event.data.type === 'TOPSTEP_LOAD_ORDER_STORE') {
-      console.log('[Config Bridge] 📂 Loading OrderStore from local storage');
-      chrome.storage.local.get('topstep_order_store', (result) => {
-        window.postMessage({
-          type: 'TOPSTEP_ORDER_STORE_DATA',
-          data: result.topstep_order_store || null
-        }, '*');
-        console.log('[Config Bridge] 📤 OrderStore data sent to MAIN world');
-      });
-    }
-    
-    // Clear OrderStore
-    else if (event.data.type === 'TOPSTEP_CLEAR_ORDER_STORE') {
-      console.log('[Config Bridge] 🗑️ Clearing OrderStore from storage');
-      chrome.storage.local.remove('topstep_order_store', () => {
-        console.log('[Config Bridge] ✅ OrderStore cleared');
-      });
-    }
-  });
-
-  console.log('[TopstepX Config Bridge] ✅ Bridge ready (with OrderStore support)');
+  console.log('[TopstepX Config Bridge] ✅ Bridge ready');
 })();
 

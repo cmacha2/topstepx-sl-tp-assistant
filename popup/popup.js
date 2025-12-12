@@ -85,9 +85,6 @@ class PopupController {
       autoUpdate: document.getElementById('autoUpdate'),
       autoHideOnMarket: document.getElementById('autoHideOnMarket'),
       playSound: document.getElementById('playSound'),
-      
-      // Line Drag Sync
-      enableLineDragSync: document.getElementById('enableLineDragSync'),
 
       // Buttons
       saveBtn: document.getElementById('saveBtn'),
@@ -184,9 +181,6 @@ class PopupController {
     safeCheck(this.elements.autoUpdate, config.autoUpdate, true);
     safeCheck(this.elements.autoHideOnMarket, config.autoHideOnMarket, true);
     safeCheck(this.elements.playSound, config.playSound, false);
-    
-    // Line Drag Sync
-    safeCheck(this.elements.enableLineDragSync, config.enableLineDragSync, false);
     
     console.log('[Popup] Config loaded successfully');
   }
@@ -355,10 +349,6 @@ class PopupController {
       autoUpdate: this.elements.autoUpdate.checked,
       autoHideOnMarket: this.elements.autoHideOnMarket.checked,
       playSound: this.elements.playSound.checked,
-      
-      // Line Drag Sync
-      enableLineDragSync: this.elements.enableLineDragSync.checked,
-      syncDebounceDelay: 1000, // Fixed 1 second
 
       // Advanced (from defaults)
       roundContracts: 'down',

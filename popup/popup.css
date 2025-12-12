@@ -434,34 +434,6 @@ input[type="text"]:focus {
   }
 }
 
-/* Info Box */
-.info-box {
-  background: rgba(0, 150, 255, 0.1);
-  border: 1px solid rgba(0, 150, 255, 0.3);
-  border-radius: 6px;
-  padding: 10px;
-  margin-top: 12px;
-}
-
-.info-box strong {
-  display: block;
-  color: #00aaff;
-  font-size: 11px;
-  margin-bottom: 6px;
-}
-
-.info-box ul {
-  margin: 6px 0 0 16px;
-  padding: 0;
-}
-
-.info-box li {
-  font-size: 10px;
-  color: #ccc;
-  line-height: 1.6;
-  margin-bottom: 3px;
-}
-
 /* Footer */
 footer {
   text-align: center;

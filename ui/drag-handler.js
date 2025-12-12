@@ -10,14 +10,20 @@ class DragHandler {
    * @param {object} chart - TradingView chart instance
    * @param {CalculationEngine} calculationEngine - Calculation engine instance
    * @param {LineRenderer} lineRenderer - Line renderer instance
+   * @param {APIClient} apiClient - API client instance (optional)
+   * @param {OrderContext} orderContext - Order context instance (optional)
    */
-  constructor(chart, calculationEngine, lineRenderer) {
+  constructor(chart, calculationEngine, lineRenderer, apiClient = null, orderContext = null) {
     this.chart = chart;
     this.calc = calculationEngine;
     this.renderer = lineRenderer;
+    this.apiClient = apiClient;
+    this.orderContext = orderContext;
     this.isDragging = false;
     this.listeners = new Map();
     this.currentState = null;
+    this.dragStartTime = null;
+    this.dragEndTimer = null;
   }
 
   /**
@@ -73,8 +79,16 @@ class DragHandler {
 
       console.log(`[DragHandler] ${lineType} line dragged to:`, newPrice);
 
+      // Mark drag start time
+      if (!this.dragStartTime) {
+        this.dragStartTime = Date.now();
+      }
+
       // Process the drag
       this.onLineDragged(lineType, newPrice);
+
+      // Schedule API update after drag settles (debounced)
+      this.scheduleDragEndUpdate();
     } catch (error) {
       console.error('[DragHandler] Error handling line drag:', error);
     }
@@ -142,6 +156,24 @@ class DragHandler {
         type: 'UPDATE_CONTRACTS',
         contracts: newContracts
       });
+    }
+
+    // Update order context if available
+    if (this.orderContext && this.orderContext.hasOrder()) {
+      const updates = {};
+      if (lineType === 'SL') {
+        updates.slPrice = roundedPrice;
+        updates.slDollars = Math.abs(newDollars);
+      } else {
+        updates.tpPrice = roundedPrice;
+        updates.tpDollars = Math.abs(newDollars);
+      }
+      this.orderContext.updateSLTP(
+        updates.slPrice,
+        updates.tpPrice,
+        updates.slDollars,
+        updates.tpDollars
+      );
     }
 
     // Notify parent about the drag event
@@ -236,12 +268,89 @@ class DragHandler {
   }
 
   /**
+   * Schedule API update after drag settles
+   * Uses debouncing to avoid excessive API calls
+   * @private
+   */
+  scheduleDragEndUpdate() {
+    // Clear existing timer
+    if (this.dragEndTimer) {
+      clearTimeout(this.dragEndTimer);
+    }
+
+    // Set new timer (wait 500ms after last drag event)
+    this.dragEndTimer = setTimeout(() => {
+      this.onDragEnd();
+    }, 500);
+  }
+
+  /**
+   * Handle drag end - update API with final values
+   * @private
+   */
+  async onDragEnd() {
+    const dragDuration = Date.now() - this.dragStartTime;
+    console.log(`[DragHandler] Drag ended (duration: ${dragDuration}ms)`);
+
+    this.dragStartTime = null;
+    this.dragEndTimer = null;
+
+    // Update API if client is available
+    if (this.apiClient && this.apiClient.isReady()) {
+      try {
+        const slDollars = this.currentState.slDollars || 0;
+        const tpDollars = this.currentState.tpDollars || 0;
+
+        console.log('[DragHandler] Updating position brackets via API:', {
+          slDollars,
+          tpDollars
+        });
+
+        // Call API with debouncing (additional 1s debounce in API client)
+        await this.apiClient.updatePositionBrackets(slDollars, tpDollars, true);
+
+        console.log('[DragHandler] ✅ Position brackets updated successfully');
+      } catch (error) {
+        console.error('[DragHandler] ❌ Failed to update position brackets:', error);
+      }
+    } else {
+      console.log('[DragHandler] API client not available or not ready');
+    }
+  }
+
+  /**
+   * Set API client
+   * @param {APIClient} apiClient - API client instance
+   */
+  setAPIClient(apiClient) {
+    this.apiClient = apiClient;
+    console.log('[DragHandler] API client set');
+  }
+
+  /**
+   * Set order context
+   * @param {OrderContext} orderContext - Order context instance
+   */
+  setOrderContext(orderContext) {
+    this.orderContext = orderContext;
+    console.log('[DragHandler] Order context set');
+  }
+
+  /**
    * Reset drag handler state
    */
   reset() {
     this.currentState = null;
     this.isDragging = false;
     this.listeners.clear();
+    this.dragStartTime = null;
+    
+    // Clear drag end timer
+    if (this.dragEndTimer) {
+      clearTimeout(this.dragEndTimer);
+      this.dragEndTimer = null;
+    }
+    
     console.log('[DragHandler] Reset');
   }
 }

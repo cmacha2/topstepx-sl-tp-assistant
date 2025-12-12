@@ -6,10 +6,10 @@
   const BUILD_TIME = new Date().toISOString().slice(0, 19).replace('T', ' ');
   console.log(`%c
   ╔══════════════════════════════════════════╗
-  ║  TopstepX SL/TP Assistant v4.6.0        ║
+  ║  TopstepX SL/TP Assistant v4.5.4        ║
   ║  BUILD: ${BUILD_TIME}                   ║
-  ║  STATUS: 🏪 ORDERSTORE + DRAG SYNC      ║
-  ║  CONFIG: PERSISTENT LINES               ║
+  ║  STATUS: ✅ PERSISTENT LINES            ║
+  ║  FEATURES: AUTO SYNC & RESTORE          ║
   ╚══════════════════════════════════════════╝
   `, 'color: #00ff00; font-weight: bold; font-size: 16px;');
 
@@ -27,6 +27,8 @@
   let calculationEngine = null;
   let domObserver = null;
   let networkInterceptor = null;
+  let apiClient = null;
+  let orderContext = null;
   let configReady = false;
 
   /**
@@ -49,15 +51,6 @@
         console.log('[TopstepX v4] 📥 Config received from bridge:', event.data.config);
         config = event.data.config;
         configReady = true;
-        
-        // Apply line drag sync configuration
-        if (typeof window.lineDragSync !== 'undefined') {
-          window.lineDragSync.setEnabled(config.enableLineDragSync || false);
-          if (config.syncDebounceDelay) {
-            window.lineDragSync.debounceDelay = config.syncDebounceDelay;
-          }
-          console.log('[TopstepX v4] 🔄 Line drag sync:', config.enableLineDragSync ? 'ENABLED' : 'DISABLED');
-        }
         
         // If we're waiting for config, continue initialization
         if (!chartAccess) {
@@ -91,7 +84,29 @@
       calculationEngine = new CalculationEngine();
       console.log('[TopstepX v4] ✅ Calculation engine loaded');
 
-      // 2. Request config from bridge
+      // 2. Initialize API client
+      apiClient = new APIClient();
+      const apiReady = apiClient.initialize();
+      if (apiReady) {
+        console.log('[TopstepX v4] ✅ API client initialized');
+      } else {
+        console.warn('[TopstepX v4] ⚠️ API client not ready (no token)');
+      }
+
+      // 3. Initialize order context
+      orderContext = new OrderContext();
+      const restoredOrder = orderContext.initialize();
+      if (restoredOrder) {
+        console.log('[TopstepX v4] 📦 Restored order:', restoredOrder);
+        // Restore state from persisted order
+        state.symbol = restoredOrder.symbol;
+        state.price = restoredOrder.entryPrice;
+        state.quantity = restoredOrder.quantity;
+        state.side = restoredOrder.side;
+        state.hasActiveOrder = restoredOrder.status === 'active' || restoredOrder.status === 'pending';
+      }
+
+      // 4. Request config from bridge
       requestConfig();
       
       // Wait for config with timeout
@@ -165,6 +180,13 @@
         networkInterceptor.on('orderCreated', (orderData) => {
           console.log('[TopstepX v4] 🆕 Order created:', orderData);
           state.hasActiveOrder = true;
+          
+          // Update API client with account ID if available
+          if (orderData.accountId && apiClient) {
+            apiClient.setAccountId(orderData.accountId);
+            console.log('[TopstepX v4] 💳 Account ID set:', orderData.accountId);
+          }
+          
           handleOrderData(orderData);
         });
         
@@ -184,6 +206,13 @@
             chartAccess.clearLines();
             console.log('[TopstepX v4] 🗑️ Lines cleared after order cancellation');
           }
+          
+          // Clear persisted order
+          if (orderContext) {
+            orderContext.cancelOrder();
+            orderContext.clearOrder(false);
+            console.log('[TopstepX v4] 🗑️ Order cleared from storage');
+          }
         });
         
         console.log('[TopstepX v4] ✅ Network interceptor setup');
@@ -191,8 +220,8 @@
         console.warn('[TopstepX v4] ⚠️ NetworkInterceptor not available');
       }
 
-      // 2. Create chart access instance
-      chartAccess = new ChartAccess();
+      // 2. Create chart access instance with API client and order context
+      chartAccess = new ChartAccess(apiClient, orderContext);
       
       // 3. Find the chart
       console.log('[TopstepX v4] 🔍 Searching for chart...');
@@ -207,13 +236,24 @@
 
       // 4. Setup DOM observer
       domObserver = new SmartDOMObserver(handleDOMData);
-        domObserver.start();
-        console.log('[TopstepX v4] ✅ DOM observer started');
-        
-        // 5. Rehydrate OrderStore and restore lines if available
-        await rehydrateOrderStore();
+      domObserver.start();
+      console.log('[TopstepX v4] ✅ DOM observer started');
 
-        console.log('[TopstepX v4] ✅ INITIALIZATION COMPLETE');
+      console.log('[TopstepX v4] ✅ INITIALIZATION COMPLETE');
+
+      // 5. Restore persisted order lines if available
+      if (orderContext && orderContext.hasOrder()) {
+        const order = orderContext.getOrder();
+        console.log('[TopstepX v4] 📦 Restoring order lines from storage...');
+        
+        // Wait a moment for chart to be fully ready
+        setTimeout(() => {
+          restoreOrderLines(order);
+        }, 1000);
+      }
+      
+      // 6. Setup chart reconnection watcher (for route changes)
+      setupChartReconnectionWatcher();
 
     } catch (error) {
       console.error('[TopstepX v4] ❌ Initialization failed:', error);
@@ -221,49 +261,70 @@
   }
   
   /**
-   * Rehydrate OrderStore from storage and restore lines
+   * Setup watcher to detect when chart is destroyed and recreated
+   * This happens when user navigates to another route and comes back
    */
-  async function rehydrateOrderStore() {
-    console.log('[TopstepX v4] 💧 Rehydrating OrderStore...');
+  function setupChartReconnectionWatcher() {
+    let lastChartId = chartAccess?.iframe?.id || null;
+    let isWatching = true;
     
-    if (typeof window.orderStore === 'undefined') {
-      console.warn('[TopstepX v4] ⚠️ OrderStore not available');
-      return;
-    }
+    console.log('[TopstepX v4] 👀 Chart reconnection watcher started');
     
-    try {
-      // Attempt to rehydrate from storage
-      const rehydrated = await window.orderStore.rehydrate();
+    // Check every 2 seconds if chart still exists or has changed
+    const watchInterval = setInterval(async () => {
+      if (!isWatching) return;
       
-      if (!rehydrated) {
-        console.log('[TopstepX v4] 💧 No data to restore');
-        return;
-      }
-      
-      console.log('[TopstepX v4] 💧 OrderStore rehydrated successfully');
-      
-      // Restore lines to chart
-      if (chartAccess) {
-        const restored = await chartAccess.restoreFromStore();
-        if (restored) {
-          console.log('[TopstepX v4] ✅ Lines restored to chart!');
-          state.hasActiveOrder = true;
+      try {
+        // Check if our current chart reference is still valid
+        const currentIframe = chartAccess?.iframe;
+        const chartStillExists = currentIframe && document.contains(currentIframe);
+        
+        if (!chartStillExists) {
+          console.log('[TopstepX v4] 🔄 Chart disappeared - looking for new chart...');
           
-          // Get order data from store
-          const orderData = window.orderStore.getActiveOrder();
-          if (orderData) {
-            state.symbol = orderData.symbol;
-            state.side = orderData.side;
-            state.quantity = orderData.contracts;
+          // Chart was destroyed (user navigated away)
+          // Try to find the new chart
+          const newChartFound = await chartAccess.findChart(30);
+          
+          if (newChartFound) {
+            const newChartId = chartAccess.iframe?.id;
+            console.log('[TopstepX v4] ✅ New chart found:', newChartId);
+            
+            // Check if we have an order to restore
+            if (orderContext && orderContext.hasOrder()) {
+              const order = orderContext.getOrder();
+              console.log('[TopstepX v4] 🔄 Restoring lines after route change...');
+              
+              // Wait for chart to be fully ready
+              setTimeout(() => {
+                // Restore state from persisted order
+                state.symbol = order.symbol;
+                state.price = order.entryPrice;
+                state.quantity = order.quantity;
+                state.side = order.side;
+                state.hasActiveOrder = true;
+                
+                restoreOrderLines(order);
+              }, 1500);
+            }
+            
+            lastChartId = newChartId;
           }
-        } else {
-          console.log('[TopstepX v4] ⚠️ Could not restore lines to chart');
         }
+      } catch (e) {
+        // Ignore errors during watch
       }
-      
-    } catch (error) {
-      console.error('[TopstepX v4] ❌ Error rehydrating OrderStore:', error);
-    }
+    }, 2000);
+    
+    // Also watch for visibility changes (tab switching)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[TopstepX v4] 👁️ Page became visible - checking chart...');
+        // Trigger a check
+      }
+    });
+    
+    console.log('[TopstepX v4] 👀 Watcher interval set up');
   }
   
   /**
@@ -286,6 +347,12 @@
         chartAccess.clearLines();
       }
       return;
+    }
+    
+    // This is a valid limit/stop order, ensure flag is set
+    if (!state.hasActiveOrder) {
+      state.hasActiveOrder = true;
+      console.log('[TopstepX v4] 📍 Active limit/stop order detected');
     }
     
     let changed = false;
@@ -363,8 +430,54 @@
       changed = true;
     }
 
+    // If we have complete order data from DOM, update lines
     if (changed) {
+      // DOM data indicates there's likely an active order
+      // (will be validated in updateLines)
       updateLines();
+    }
+  }
+
+  /**
+   * Restore order lines from persisted order
+   * @param {object} order - Persisted order object
+   */
+  function restoreOrderLines(order) {
+    if (!order || !chartAccess || !chartAccess.chart || !config) {
+      console.warn('[TopstepX v4] ⚠️ Cannot restore lines - missing data');
+      return;
+    }
+
+    try {
+      console.log('[TopstepX v4] 🔄 Restoring lines for order:', order.orderId);
+
+      // Get instrument specs
+      const instrument = InstrumentDatabase.getInstrument(order.symbol);
+      if (!instrument) {
+        console.warn('[TopstepX v4] ⚠️ Unknown instrument:', order.symbol);
+        return;
+      }
+
+      // Restore state
+      state.symbol = order.symbol;
+      state.price = order.entryPrice;
+      state.quantity = order.quantity;
+      state.side = order.side;
+      state.hasActiveOrder = true;
+
+      // Restore lines on chart
+      chartAccess.updateLines(
+        order.slPrice,
+        order.tpPrice,
+        order.entryPrice,
+        config,
+        order.quantity,
+        instrument
+      );
+
+      console.log('[TopstepX v4] ✅ Lines restored successfully!');
+    } catch (error) {
+      console.error('[TopstepX v4] ❌ Error restoring lines:', error);
     }
   }
 
@@ -372,15 +485,18 @@
    * Calculate and update lines
    */
   function updateLines() {
-    // CRITICAL: Only show lines if there's an active limit/stop order
-    if (!state.hasActiveOrder) {
-      console.log('[TopstepX v4] ⏸️ No active order - lines hidden');
-      return;
-    }
-    
     if (!state.symbol || !state.price || !chartAccess || !chartAccess.chart) {
       console.log('[TopstepX v4] ⏳ Waiting for data... Symbol:', state.symbol, 'Price:', state.price, 'Chart:', !!chartAccess?.chart);
       return;
+    }
+    
+    // If we have price and symbol data, assume there's an active order
+    // (unless explicitly marked as no active order by market order detection)
+    if (!state.hasActiveOrder) {
+      // If we reached here with data, it means DOM detected an order
+      // Set hasActiveOrder to true
+      state.hasActiveOrder = true;
+      console.log('[TopstepX v4] 📍 Order detected via DOM - enabling lines');
     }
 
     try {
@@ -445,10 +561,41 @@
       console.log('[TopstepX v4] 🟢 TP Price:', tpPrice, state.side === 'long' ? '(above entry)' : '(below entry)');
       console.log('[TopstepX v4] 📊 Contracts:', contracts);
 
-        // Update lines on chart!
-        chartAccess.updateLines(slPrice, tpPrice, state.price, config, contracts, instrument, state.side);
+      // Update lines on chart!
+      chartAccess.updateLines(slPrice, tpPrice, state.price, config, contracts, instrument);
 
-        console.log('[TopstepX v4] ✅ Lines updated on chart!');
+      console.log('[TopstepX v4] ✅ Lines updated on chart!');
+
+      // Persist order to storage
+      if (orderContext && state.hasActiveOrder) {
+        orderContext.setOrder({
+          orderId: `order_${Date.now()}`,
+          accountId: apiClient ? apiClient.getAccountId() : null,
+          symbol: state.symbol,
+          side: state.side,
+          orderType: 'limit',
+          entryPrice: state.price,
+          quantity: contracts,
+          slPrice: slPrice,
+          tpPrice: tpPrice,
+          slDollars: slDollars,
+          tpDollars: tpDollars,
+          status: 'active',
+          timestamp: Date.now()
+        });
+        console.log('[TopstepX v4] 💾 Order persisted to storage');
+      }
+
+      // Update position brackets via API (debounced)
+      if (apiClient && apiClient.isReady()) {
+        apiClient.updatePositionBrackets(slDollars, tpDollars, true)
+          .then(() => {
+            console.log('[TopstepX v4] ✅ Position brackets updated via API');
+          })
+          .catch((error) => {
+            console.error('[TopstepX v4] ❌ Failed to update position brackets:', error);
+          });
+      }
 
     } catch (error) {
       console.error('[TopstepX v4] ❌ Error updating lines:', error);
