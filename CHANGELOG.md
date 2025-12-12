@@ -5,6 +5,174 @@ All notable changes to the TopstepX SL/TP Visual Extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2024-12-12
+
+### 📊 Percentage Mode - Real Account Balance
+
+#### Added - Percentage Display Mode
+- **Show % Instead of USD**: New checkbox to display risk/reward as percentage of total account value
+- **Real-Time Account Balance**: Automatically captures current account balance from TopstepX API
+- **Template Integration**: Fetches starting balance from account template
+- **Dynamic Calculation**: Total Account Value = Starting Balance + Current Balance (P&L)
+- **Smart Percentage Math**: Accurate % calculations based on actual account size
+
+#### New API Integrations
+- **`/TradingAccount` Endpoint**: Captures real-time balance, P&L, account info
+- **`/AccountTemplate/userTemplates` Endpoint**: Fetches starting balance for each template
+- **Automatic Detection**: Identifies active account and matches to template
+
+#### Configuration Options
+- `showPercentage` (boolean): Toggle between USD and percentage display mode
+- Works with all existing label customization options
+- Percentage precision: 1-2 decimal places based on `showDecimals` setting
+
+#### How It Works
+```
+1. Extension intercepts /TradingAccount API response
+   - Captures: balance, accountId, templateId, realizedDayPnl
+   
+2. Extension intercepts /AccountTemplate/userTemplates response
+   - Captures: startingBalance for each template
+   
+3. Calculate Total Account Value:
+   - Example: $50K template + $1,783.90 balance = $51,783.90 total
+   
+4. Calculate Percentage:
+   - SL -$300 ÷ $51,783.90 = -0.58%
+   - TP +$600 ÷ $51,783.90 = +1.16%
+   
+5. Display on chart:
+   - "SL -0.6%" (instead of "SL -$300")
+   - "TP +1.2%" (instead of "TP +$600")
+```
+
+#### Example Scenarios
+
+**Scenario 1: New Account (No P&L)**
+- Template: $50K Express (startingBalance: 0)
+- Current Balance: $0
+- Total: $50,000 (uses accountSize from config as fallback)
+- SL $300 = 0.6%
+
+**Scenario 2: Profitable Account**
+- Template: $50K Express (startingBalance: 0)
+- Current Balance: +$1,783.90
+- Total: $51,783.90
+- SL $300 = 0.58%
+- TP $600 = 1.16%
+
+**Scenario 3: Account with Loss**
+- Template: $50K Combine (startingBalance: 50000)
+- Current Balance: -$500
+- Total: $49,500
+- SL $300 = 0.61%
+
+#### Files Modified
+- `lib/network-interceptor.js` - Added account/template data capture
+- `lib/storage-manager.js` - Added `showPercentage` config option
+- `content-scripts/main-content-v4.js` - Added account value tracking and calculation
+- `lib/chart-access.js` - Updated `formatLabel()` to support percentage mode
+- `popup/popup.html` - Added percentage toggle checkbox
+- `popup/popup.js` - Added percentage option handling
+- `manifest.json` - Version bump to 4.5.0
+
+#### Benefits
+- ✅ See risk as % of your actual account value (not just starting balance)
+- ✅ More meaningful for funded accounts with P&L
+- ✅ Better risk management (know your % risk at a glance)
+- ✅ Accounts for daily wins/losses automatically
+- ✅ Works with all account types (Express, Combine, etc.)
+- ✅ Toggle on/off anytime without losing USD mode
+
+#### Impact
+- 🎯 **Better Risk Visualization**: Percentages are more intuitive than raw dollars
+- 💰 **Real Balance Tracking**: Uses actual account value, not config estimate
+- 📊 **Professional Display**: Shows risk like prop firms calculate it
+- 🔄 **Dynamic Updates**: Refreshes as your balance changes throughout the day
+
+## [4.4.2] - 2024-12-11
+
+### 🗑️ Order Lifecycle Management
+
+#### Added
+- **Auto Clear on Cancel**: Lines automatically removed when order is cancelled
+- **Order Cancellation Detection**: Intercepts DELETE requests to `/Order/cancel/`
+- **Order ID Tracking**: Verifies cancelled order matches active order
+- **State Management**: Updates `hasActiveOrder` flag on cancellation
+
+#### Technical Implementation - Order Cancellation
+- Intercepts DELETE requests in both fetch and XHR
+- Extracts order ID from URL pattern: `/Order/cancel/{accountId}/id/{orderId}`
+- Compares with active order ID before clearing
+- Emits `orderCancelled` event to main content script
+- Clears chart lines via `chartAccess.clearLines()`
+
+#### User Experience - Order Cancellation
+- ✅ Cancel order in TopstepX → Lines disappear automatically
+- ✅ No manual cleanup needed
+- ✅ Clean chart when order is not active
+- ✅ Console logging for debugging
+
+#### Example Flow
+```
+User cancels order in TopstepX
+  ↓
+DELETE /Order/cancel/{accountId}/id/{orderId}
+  ↓
+Network Interceptor detects DELETE
+  ↓
+Extracts and compares order ID
+  ↓
+Emits 'orderCancelled' event
+  ↓
+Main content clears lines
+  ↓
+Chart is clean
+```
+
+#### Files Modified
+- `lib/network-interceptor.js` - Added DELETE request interception
+- `content-scripts/main-content-v4.js` - Added `orderCancelled` event handler
+- `ORDER-LIFECYCLE-MANAGEMENT.md` - Complete documentation (NEW)
+- `ORDER-CANCEL-FEATURE.md` - Quick guide (NEW)
+
+#### Impact
+- ✅ Clean chart management
+- ✅ No manual cleanup required
+- ✅ Better visual feedback
+- ✅ Professional user experience
+
+## [4.4.1] - 2024-12-11
+
+### 🐛 Critical BugFix
+
+#### Fixed
+- **Undefined Value Parse Error**: Fixed `"undefined" cannot be parsed` error when loading popup with old configurations
+- **Config Merging**: Storage manager now automatically merges saved configs with defaults
+- **Safe Value Assignment**: Added helper functions to prevent undefined values in form inputs
+- **DOM Validation**: Added element existence checks with detailed error logging
+
+#### Enhanced
+- **Backward Compatibility**: Old configs (pre-v4.4.0) now load seamlessly with new defaults
+- **Forward Compatibility**: New fields automatically added when missing
+- **Storage Manager**: Enhanced `getConfig()` and `updateConfig()` with triple-merge strategy
+- **Logging**: Added comprehensive debug logging for config loading
+
+#### Added
+- **Migration Script**: Optional manual migration utility (`scripts/migrate-config.js`)
+- **BugFix Documentation**: Detailed analysis in `BUGFIX-UNDEFINED-VALUES.md`
+
+#### Technical
+- **popup.js**: Added `safeSet()`, `safeCheck()`, `safeText()` helpers
+- **storage-manager.js**: Enhanced config merging with spread operators
+- **DOM Caching**: Added validation to detect missing elements
+
+#### Impact
+- ✅ Popup loads without errors on upgrade from v4.3.x
+- ✅ No data loss from existing configurations
+- ✅ Proper defaults for all new v4.4.0 fields
+- ✅ Production-ready upgrade path
+
 ## [4.4.0] - 2024-12-11
 
 ### 🎨 Full Customization Update

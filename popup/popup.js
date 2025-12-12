@@ -32,6 +32,8 @@ class PopupController {
    * Cache DOM elements for better performance
    */
   cacheElements() {
+    console.log('[Popup] Caching DOM elements...');
+    
     this.elements = {
       // Risk Management
       riskPercent: document.getElementById('riskPercent'),
@@ -75,6 +77,7 @@ class PopupController {
       showLabels: document.getElementById('showLabels'),
       showDecimals: document.getElementById('showDecimals'),
       showContracts: document.getElementById('showContracts'),
+      showPercentage: document.getElementById('showPercentage'),
       fontBold: document.getElementById('fontBold'),
       useEmojis: document.getElementById('useEmojis'),
 
@@ -91,6 +94,20 @@ class PopupController {
       // Status
       status: document.getElementById('status')
     };
+    
+    // Verify all elements exist
+    const missingElements = [];
+    for (const [key, element] of Object.entries(this.elements)) {
+      if (!element) {
+        missingElements.push(key);
+      }
+    }
+    
+    if (missingElements.length > 0) {
+      console.error('[Popup] Missing elements:', missingElements);
+    } else {
+      console.log('[Popup] ✅ All elements cached successfully');
+    }
   }
 
   /**
@@ -98,50 +115,76 @@ class PopupController {
    * @param {object} config - Configuration object
    */
   populateForm(config) {
+    console.log('[Popup] Loading config:', config);
+    
+    // Helper function to safely set value
+    const safeSet = (element, value, defaultValue) => {
+      if (element) {
+        element.value = value !== undefined && value !== null ? value : defaultValue;
+      }
+    };
+    
+    // Helper function to safely set checked
+    const safeCheck = (element, value, defaultValue = false) => {
+      if (element) {
+        element.checked = value !== undefined && value !== null ? value : defaultValue;
+      }
+    };
+    
+    // Helper function to safely set text content
+    const safeText = (element, value, defaultValue) => {
+      if (element) {
+        element.textContent = value !== undefined && value !== null ? value : defaultValue;
+      }
+    };
+
     // Risk Management
-    this.elements.riskPercent.checked = config.riskMode === 'percent';
-    this.elements.riskFixed.checked = config.riskMode === 'fixed';
-    this.elements.riskPercentValue.value = config.riskPercent;
-    this.elements.riskFixedValue.value = config.riskFixed;
-    this.elements.accountSize.value = config.accountSize;
+    safeCheck(this.elements.riskPercent, config.riskMode === 'percent', true);
+    safeCheck(this.elements.riskFixed, config.riskMode === 'fixed', false);
+    safeSet(this.elements.riskPercentValue, config.riskPercent, 2);
+    safeSet(this.elements.riskFixedValue, config.riskFixed, 500);
+    safeSet(this.elements.accountSize, config.accountSize, 50000);
 
     // SL/TP
-    this.elements.defaultSL.value = config.defaultSL;
-    this.elements.defaultTP.value = config.defaultTP;
-    this.elements.tpRatio.value = config.tpRatio;
-    this.elements.useRatio.checked = config.useRatio;
+    safeSet(this.elements.defaultSL, config.defaultSL, 100);
+    safeSet(this.elements.defaultTP, config.defaultTP, 200);
+    safeSet(this.elements.tpRatio, config.tpRatio, 2);
+    safeCheck(this.elements.useRatio, config.useRatio, true);
 
     // Visual Settings - Colors
-    this.elements.slColor.value = config.slColor;
-    this.elements.tpColor.value = config.tpColor;
+    safeSet(this.elements.slColor, config.slColor, '#FF0000');
+    safeSet(this.elements.tpColor, config.tpColor, '#00FF00');
 
     // Visual Settings - Lines
-    this.elements.lineWidth.value = config.lineWidth;
-    this.elements.lineWidthValue.textContent = config.lineWidth;
-    this.elements.slLineStyle.value = config.slLineStyle || 0;
-    this.elements.tpLineStyle.value = config.tpLineStyle || 0;
-    this.elements.lineOpacity.value = config.lineOpacity || 100;
-    this.elements.lineOpacityValue.textContent = config.lineOpacity || 100;
+    safeSet(this.elements.lineWidth, config.lineWidth, 1);
+    safeText(this.elements.lineWidthValue, config.lineWidth, 1);
+    safeSet(this.elements.slLineStyle, config.slLineStyle, 0);
+    safeSet(this.elements.tpLineStyle, config.tpLineStyle, 0);
+    safeSet(this.elements.lineOpacity, config.lineOpacity, 100);
+    safeText(this.elements.lineOpacityValue, config.lineOpacity, 100);
 
     // Visual Settings - Text
-    this.elements.fontSize.value = config.fontSize || 10;
-    this.elements.fontSizeValue.textContent = config.fontSize || 10;
-    this.elements.labelFormat.value = config.labelFormat || 'compact';
-    this.elements.slPrefix.value = config.slPrefix || 'SL';
-    this.elements.tpPrefix.value = config.tpPrefix || 'TP';
+    safeSet(this.elements.fontSize, config.fontSize, 10);
+    safeText(this.elements.fontSizeValue, config.fontSize, 10);
+    safeSet(this.elements.labelFormat, config.labelFormat, 'compact');
+    safeSet(this.elements.slPrefix, config.slPrefix, 'SL');
+    safeSet(this.elements.tpPrefix, config.tpPrefix, 'TP');
 
     // Display Options
-    this.elements.showLabels.checked = config.showLabels;
-    this.elements.showDecimals.checked = config.showDecimals || false;
-    this.elements.showContracts.checked = config.showContracts !== false;
-    this.elements.fontBold.checked = config.fontBold || false;
-    this.elements.useEmojis.checked = config.useEmojis || false;
+    safeCheck(this.elements.showLabels, config.showLabels, true);
+    safeCheck(this.elements.showDecimals, config.showDecimals, false);
+    safeCheck(this.elements.showContracts, config.showContracts, true);
+    safeCheck(this.elements.showPercentage, config.showPercentage, false);
+    safeCheck(this.elements.fontBold, config.fontBold, false);
+    safeCheck(this.elements.useEmojis, config.useEmojis, false);
 
     // Behavior Options
-    this.elements.persistLines.checked = config.persistLines;
-    this.elements.autoUpdate.checked = config.autoUpdate;
-    this.elements.autoHideOnMarket.checked = config.autoHideOnMarket !== false;
-    this.elements.playSound.checked = config.playSound || false;
+    safeCheck(this.elements.persistLines, config.persistLines, true);
+    safeCheck(this.elements.autoUpdate, config.autoUpdate, true);
+    safeCheck(this.elements.autoHideOnMarket, config.autoHideOnMarket, true);
+    safeCheck(this.elements.playSound, config.playSound, false);
+    
+    console.log('[Popup] Config loaded successfully');
   }
 
   /**
@@ -297,6 +340,7 @@ class PopupController {
       labelFormat: this.elements.labelFormat.value,
       showDecimals: this.elements.showDecimals.checked,
       showContracts: this.elements.showContracts.checked,
+      showPercentage: this.elements.showPercentage.checked,
 
       // Label Text Customization
       slPrefix: this.elements.slPrefix.value.trim() || 'SL',
