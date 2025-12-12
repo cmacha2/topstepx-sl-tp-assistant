@@ -8,8 +8,8 @@
   ╔══════════════════════════════════════════╗
   ║  TopstepX SL/TP Assistant v4.6.0        ║
   ║  BUILD: ${BUILD_TIME}                   ║
-  ║  STATUS: 🔍 DOM ORDER DETECTION         ║
-  ║  CONFIG: RESTORE FROM ACTIVE ORDERS     ║
+  ║  STATUS: 🏪 PERSISTENT LINES + SYNC     ║
+  ║  CONFIG: ORDERSTORE REHYDRATION         ║
   ╚══════════════════════════════════════════╝
   `, 'color: #00ff00; font-weight: bold; font-size: 16px;');
 
@@ -27,7 +27,6 @@
   let calculationEngine = null;
   let domObserver = null;
   let networkInterceptor = null;
-  let activeOrdersObserver = null;
   let configReady = false;
 
   /**
@@ -211,20 +210,8 @@
       domObserver.start();
       console.log('[TopstepX v4] ✅ DOM observer started');
       
-      // 5. Setup Active Orders Observer (detects orders from DOM)
-      if (typeof ActiveOrdersObserver !== 'undefined') {
-        activeOrdersObserver = new ActiveOrdersObserver(handleDOMOrderDetected);
-        activeOrdersObserver.start();
-        console.log('[TopstepX v4] ✅ Active Orders Observer started');
-        
-        // Deep search after page loads completely
-        setTimeout(() => {
-          if (activeOrdersObserver && !state.hasActiveOrder) {
-            console.log('[TopstepX v4] 🔎 Deep DOM search for existing orders...');
-            activeOrdersObserver.searchEntireDOM();
-          }
-        }, 5000);
-      }
+      // 5. Rehydrate OrderStore and restore lines if available
+      await rehydrateOrderStore();
 
       console.log('[TopstepX v4] ✅ INITIALIZATION COMPLETE');
 
@@ -234,20 +221,53 @@
   }
   
   /**
-   * Handle order detected from DOM (Active Orders Observer)
+   * Rehydrate OrderStore from storage and restore lines
    */
-  function handleDOMOrderDetected(orderData) {
-    console.log('[TopstepX v4] 📋 Order detected from DOM:', orderData);
+  async function rehydrateOrderStore() {
+    console.log('[TopstepX v4] 💧 Rehydrating OrderStore...');
     
-    // Set as active order
-    state.hasActiveOrder = true;
+    if (typeof window.orderStore === 'undefined') {
+      console.warn('[TopstepX v4] ⚠️ OrderStore not available');
+      return;
+    }
     
-    // Process like a network order
-    handleOrderData(orderData);
+    try {
+      // Attempt to rehydrate from storage
+      const rehydrated = await window.orderStore.rehydrate();
+      
+      if (!rehydrated) {
+        console.log('[TopstepX v4] 💧 No data to restore');
+        return;
+      }
+      
+      console.log('[TopstepX v4] 💧 OrderStore rehydrated successfully');
+      
+      // Restore lines to chart
+      if (chartAccess) {
+        const restored = await chartAccess.restoreFromStore();
+        if (restored) {
+          console.log('[TopstepX v4] ✅ Lines restored to chart!');
+          state.hasActiveOrder = true;
+          
+          // Get order data from store
+          const orderData = window.orderStore.getActiveOrder();
+          if (orderData) {
+            state.symbol = orderData.symbol;
+            state.side = orderData.side;
+            state.quantity = orderData.contracts;
+          }
+        } else {
+          console.log('[TopstepX v4] ⚠️ Could not restore lines to chart');
+        }
+      }
+      
+    } catch (error) {
+      console.error('[TopstepX v4] ❌ Error rehydrating OrderStore:', error);
+    }
   }
-
+  
   /**
-   * Handle order data from network interceptor or DOM
+   * Handle order data from network interceptor
    */
   function handleOrderData(orderData) {
     console.log('[TopstepX v4] 📦 Processing order data:', orderData);

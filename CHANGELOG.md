@@ -5,6 +5,163 @@ All notable changes to the TopstepX SL/TP Visual Extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.0] - 2024-12-12
+
+### 🏪 OrderStore Pattern - Persistent Lines
+
+#### Added - OrderStore System
+- **Lines Never Disappear**: Refresh, close browser, come back → Lines persist
+- **In-Memory State**: Fast, reactive state management in RAM
+- **Event-Based**: Observable pattern with `on()` / `off()` subscriptions
+- **Deterministic**: Same inputs always produce same results
+- **Rehydratable**: Automatically restores from `chrome.storage.local`
+- **TTL**: 24-hour expiration for data hygiene
+
+#### Core Principles
+
+Inspired by TopstepX internal OrderStore:
+
+1. **In-Memory**: Zero I/O latency for operations
+2. **Event-Based**: Subscribe to changes, reactive updates
+3. **Deterministic**: Predictable state transitions
+4. **Rehydratable**: Persist & restore across sessions
+5. **Observable**: Multiple listeners, easy cleanup
+
+#### API Methods
+
+```javascript
+// Upsert (insert or update)
+orderStore.upsert(orderData, linesData);
+
+// Remove (delete)
+orderStore.remove();
+
+// Clear (alias)
+orderStore.clear();
+
+// Getters
+orderStore.getActiveOrder();
+orderStore.getLinesState();
+orderStore.hasActiveOrder();
+
+// Lifecycle
+await orderStore.rehydrate();
+orderStore.persist();
+
+// Events
+orderStore.on('order-upserted', callback);
+orderStore.on('order-removed', callback);
+orderStore.on('rehydrated', callback);
+```
+
+#### Workflow
+
+```
+1. Place order → Lines drawn → State saved
+2. Page refresh (F5) → State restored → Lines reappear
+3. Close browser → Come back later (< 24h) → Lines still there
+4. Cancel order → State cleared → Lines removed
+```
+
+#### Storage Details
+
+- **Location**: `chrome.storage.local` (device-specific)
+- **Key**: `topstep_order_store`
+- **Size**: ~1-2 KB
+- **TTL**: 24 hours (auto-cleanup)
+- **Privacy**: Local only, never synced
+
+#### What's Saved
+
+```javascript
+{
+  activeOrder: {
+    symbol, entryPrice, contracts, side, timestamp
+  },
+  linesState: {
+    slPrice, tpPrice, entryPrice, contracts,
+    instrument: { tickSize, tickValue },
+    config: { colors, styles, labels }
+  },
+  timestamp: Date.now()
+}
+```
+
+#### Bridge Pattern
+
+Communication between MAIN world (OrderStore) and ISOLATED world (chrome.storage):
+
+```
+MAIN World              ISOLATED World
+----------              --------------
+OrderStore   <─────>   Config Bridge
+  (chart access)        (storage access)
+```
+
+Messages:
+- `TOPSTEP_SAVE_ORDER_STORE` - Save to storage
+- `TOPSTEP_LOAD_ORDER_STORE` - Load from storage
+- `TOPSTEP_CLEAR_ORDER_STORE` - Clear storage
+
+#### Integration Points
+
+**`lib/chart-access.js`**:
+- `persistToStore()` - Save after drawing lines
+- `restoreFromStore()` - Restore lines on page load
+- `clearLines()` - Remove from store on cancel
+
+**`content-scripts/main-content-v4.js`**:
+- `rehydrateOrderStore()` - Restore on initialization
+
+**`content-scripts/config-bridge.js`**:
+- Storage handlers for OrderStore messages
+
+#### Benefits
+
+- ✅ **Zero Data Loss**: No more lost lines on refresh
+- ⚡ **Instant Restore**: Lines appear immediately on load
+- 🎯 **Professional UX**: Seamless, production-ready experience
+- 🔒 **Local Privacy**: Data never leaves your device
+- 🗑️ **Auto-Cleanup**: 24h TTL prevents stale data
+- 📊 **Observable**: React to changes anywhere in code
+- 🏗️ **Scalable Pattern**: Clean architecture for future features
+
+#### Use Cases
+
+**Day Trader**: Set lines in morning, take breaks, lines persist all day
+
+**Connection Loss**: Internet drops, page reloads, lines restore automatically
+
+**Browser Restart**: Close Chrome, come back hours later, lines waiting
+
+**Multi-Chart**: Switch between instruments, lines stay in place
+
+#### Files Created/Modified
+
+- NEW: `lib/order-store.js` - Core OrderStore implementation
+- NEW: `ORDERSTORE-PATTERN.md` - Complete architecture documentation
+- Modified: `content-scripts/config-bridge.js` - Added storage handlers
+- Modified: `lib/chart-access.js` - Added persist/restore methods
+- Modified: `content-scripts/main-content-v4.js` - Added rehydration
+- Modified: `manifest.json` - Added order-store.js, version bump
+
+#### Impact
+
+- 🎯 **Game Changer**: Professional-grade state management
+- 🚀 **User Experience**: Lines persist like native TopstepX UI
+- 🔒 **Reliability**: Never lose your setup again
+- 📊 **Architecture**: Scalable pattern for future features
+- ⚡ **Performance**: In-memory = instant operations
+
+#### Debugging
+
+```javascript
+// Console commands
+window.orderStore.debug();
+window.orderStore.getSnapshot();
+await window.orderStore.rehydrate();
+```
+
 ## [4.5.0] - 2024-12-12
 
 ### 🔄 Line Drag Sync - Auto-Update TopstepX Platform

@@ -7,6 +7,7 @@
   console.log('[TopstepX Config Bridge] 🌉 Starting in ISOLATED world');
 
   const storageManager = new StorageManager();
+  const ORDER_STORE_KEY = 'topstep_order_store';
 
   // Listen for config requests from MAIN world
   window.addEventListener('message', async (event) => {
@@ -44,6 +45,33 @@
             config: updatedConfig
           }, '*');
           break;
+
+        case 'TOPSTEP_SAVE_ORDER_STORE':
+          console.log('[TopstepX Config Bridge] 🏪 Saving order store:', event.data.data);
+          await saveOrderStore(event.data.data);
+          window.postMessage({
+            type: 'TOPSTEP_ORDER_STORE_SAVED',
+            success: true
+          }, '*');
+          break;
+
+        case 'TOPSTEP_LOAD_ORDER_STORE':
+          console.log('[TopstepX Config Bridge] 🏪 Loading order store');
+          const storeData = await loadOrderStore();
+          window.postMessage({
+            type: 'TOPSTEP_ORDER_STORE_LOADED',
+            data: storeData
+          }, '*');
+          break;
+
+        case 'TOPSTEP_CLEAR_ORDER_STORE':
+          console.log('[TopstepX Config Bridge] 🏪 Clearing order store');
+          await clearOrderStore();
+          window.postMessage({
+            type: 'TOPSTEP_ORDER_STORE_CLEARED',
+            success: true
+          }, '*');
+          break;
       }
     } catch (error) {
       console.error('[TopstepX Config Bridge] ❌ Error:', error);
@@ -71,6 +99,49 @@
       config: config
     }, '*');
   });
+
+  // Helper functions for OrderStore persistence
+  async function saveOrderStore(data) {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        const storeData = {};
+        storeData[ORDER_STORE_KEY] = data;
+        chrome.storage.local.set(storeData, () => {
+          console.log('[TopstepX Config Bridge] 💾 Order store saved to chrome.storage.local');
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  async function loadOrderStore() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.local.get(ORDER_STORE_KEY, (result) => {
+          const data = result[ORDER_STORE_KEY] || null;
+          console.log('[TopstepX Config Bridge] 📦 Order store loaded:', data ? 'Found' : 'Empty');
+          resolve(data);
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  }
+
+  async function clearOrderStore() {
+    return new Promise((resolve) => {
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.local.remove(ORDER_STORE_KEY, () => {
+          console.log('[TopstepX Config Bridge] 🗑️ Order store cleared from storage');
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+  }
 
   console.log('[TopstepX Config Bridge] ✅ Bridge ready');
 })();
