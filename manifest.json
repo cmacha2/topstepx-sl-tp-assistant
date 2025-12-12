@@ -36,6 +36,7 @@
         "lib/calculations.js",
         "lib/instrument-database.js",
         "lib/smart-dom-observer.js",
+        "lib/active-orders-observer.js",
         "lib/line-drag-sync.js",
         "lib/network-interceptor.js",
         "lib/chart-access.js",

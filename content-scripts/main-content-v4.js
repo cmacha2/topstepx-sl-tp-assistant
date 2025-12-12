@@ -6,10 +6,10 @@
   const BUILD_TIME = new Date().toISOString().slice(0, 19).replace('T', ' ');
   console.log(`%c
   ╔══════════════════════════════════════════╗
-  ║  TopstepX SL/TP Assistant v4.5.0        ║
+  ║  TopstepX SL/TP Assistant v4.6.0        ║
   ║  BUILD: ${BUILD_TIME}                   ║
-  ║  STATUS: 🔄 LINE DRAG SYNC ENABLED      ║
-  ║  CONFIG: AUTO-SYNC TO TOPSTEPX          ║
+  ║  STATUS: 🔍 DOM ORDER DETECTION         ║
+  ║  CONFIG: RESTORE FROM ACTIVE ORDERS     ║
   ╚══════════════════════════════════════════╝
   `, 'color: #00ff00; font-weight: bold; font-size: 16px;');
 
@@ -27,6 +27,7 @@
   let calculationEngine = null;
   let domObserver = null;
   let networkInterceptor = null;
+  let activeOrdersObserver = null;
   let configReady = false;
 
   /**
@@ -209,6 +210,21 @@
       domObserver = new SmartDOMObserver(handleDOMData);
       domObserver.start();
       console.log('[TopstepX v4] ✅ DOM observer started');
+      
+      // 5. Setup Active Orders Observer (detects orders from DOM)
+      if (typeof ActiveOrdersObserver !== 'undefined') {
+        activeOrdersObserver = new ActiveOrdersObserver(handleDOMOrderDetected);
+        activeOrdersObserver.start();
+        console.log('[TopstepX v4] ✅ Active Orders Observer started');
+        
+        // Deep search after page loads completely
+        setTimeout(() => {
+          if (activeOrdersObserver && !state.hasActiveOrder) {
+            console.log('[TopstepX v4] 🔎 Deep DOM search for existing orders...');
+            activeOrdersObserver.searchEntireDOM();
+          }
+        }, 5000);
+      }
 
       console.log('[TopstepX v4] ✅ INITIALIZATION COMPLETE');
 
@@ -218,7 +234,20 @@
   }
   
   /**
-   * Handle order data from network interceptor
+   * Handle order detected from DOM (Active Orders Observer)
+   */
+  function handleDOMOrderDetected(orderData) {
+    console.log('[TopstepX v4] 📋 Order detected from DOM:', orderData);
+    
+    // Set as active order
+    state.hasActiveOrder = true;
+    
+    // Process like a network order
+    handleOrderData(orderData);
+  }
+
+  /**
+   * Handle order data from network interceptor or DOM
    */
   function handleOrderData(orderData) {
     console.log('[TopstepX v4] 📦 Processing order data:', orderData);
