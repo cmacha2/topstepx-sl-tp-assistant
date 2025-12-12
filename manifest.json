@@ -12,6 +12,7 @@
 
   "host_permissions": [
     "https://topstepx.com/*",
+    "https://userapi.topstepx.com/*",
     "https://*.tradingview.com/*"
   ],
 
@@ -35,6 +36,7 @@
         "lib/calculations.js",
         "lib/instrument-database.js",
         "lib/smart-dom-observer.js",
+        "lib/line-drag-sync.js",
         "lib/network-interceptor.js",
         "lib/chart-access.js",
         "content-scripts/main-content-v4.js"

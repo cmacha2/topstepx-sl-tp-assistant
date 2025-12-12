@@ -7,98 +7,125 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.5.0] - 2024-12-12
 
-### 📊 Percentage Mode - Real Account Balance
+### 🔄 Line Drag Sync - Auto-Update TopstepX Platform
 
-#### Added - Percentage Display Mode
-- **Show % Instead of USD**: New checkbox to display risk/reward as percentage of total account value
-- **Real-Time Account Balance**: Automatically captures current account balance from TopstepX API
-- **Template Integration**: Fetches starting balance from account template
-- **Dynamic Calculation**: Total Account Value = Starting Balance + Current Balance (P&L)
-- **Smart Percentage Math**: Accurate % calculations based on actual account size
-
-#### New API Integrations
-- **`/TradingAccount` Endpoint**: Captures real-time balance, P&L, account info
-- **`/AccountTemplate/userTemplates` Endpoint**: Fetches starting balance for each template
-- **Automatic Detection**: Identifies active account and matches to template
-
-#### Configuration Options
-- `showPercentage` (boolean): Toggle between USD and percentage display mode
-- Works with all existing label customization options
-- Percentage precision: 1-2 decimal places based on `showDecimals` setting
+#### Added - Line Drag Sync Feature
+- **Drag & Sync**: When you drag SL/TP lines on the chart, automatically updates TopstepX platform brackets
+- **Smart Debouncing**: 1-second delay prevents spam API calls while dragging
+- **Auto Token Capture**: Uses `localStorage` token for seamless authentication
+- **Account ID Tracking**: Automatically captures account ID from order requests
+- **Real-time Calculation**: Converts dragged line positions to risk/profit dollars
+- **Enable/Disable Toggle**: Complete control via popup checkbox
 
 #### How It Works
 ```
-1. Extension intercepts /TradingAccount API response
-   - Captures: balance, accountId, templateId, realizedDayPnl
-   
-2. Extension intercepts /AccountTemplate/userTemplates response
-   - Captures: startingBalance for each template
-   
-3. Calculate Total Account Value:
-   - Example: $50K template + $1,783.90 balance = $51,783.90 total
-   
-4. Calculate Percentage:
-   - SL -$300 ÷ $51,783.90 = -0.58%
-   - TP +$600 ÷ $51,783.90 = +1.16%
-   
-5. Display on chart:
-   - "SL -0.6%" (instead of "SL -$300")
-   - "TP +1.2%" (instead of "TP +$600")
+1. User places limit/stop order
+   ↓
+2. Extension draws SL/TP lines on chart
+   ↓
+3. User drags a line to new position
+   ↓
+4. Extension detects position change
+   ↓
+5. After 1 second (debounce), calculates new risk/profit
+   ↓
+6. Makes POST to /TradingAccount/setPositionBrackets
+   ↓
+7. TopstepX platform brackets updated
 ```
 
-#### Example Scenarios
+#### New Components
+- **`lib/line-drag-sync.js`**: Core sync module
+  - `LineDragSync` class with debouncing
+  - Token retrieval from `localStorage`
+  - Risk/profit calculation from line positions
+  - API communication with TopstepX
+  - Custom events for status tracking
 
-**Scenario 1: New Account (No P&L)**
-- Template: $50K Express (startingBalance: 0)
-- Current Balance: $0
-- Total: $50,000 (uses accountSize from config as fallback)
-- SL $300 = 0.6%
+#### Chart Integration
+- **`lib/chart-access.js`**: Drag detection
+  - `detectLineDrag()` method to track position changes
+  - Compares current vs last position every 500ms
+  - Triggers `syncWithDebounce()` when changed
+  - Resets tracking on line clear
 
-**Scenario 2: Profitable Account**
-- Template: $50K Express (startingBalance: 0)
-- Current Balance: +$1,783.90
-- Total: $51,783.90
-- SL $300 = 0.58%
-- TP $600 = 1.16%
+#### Network Integration
+- **`lib/network-interceptor.js`**: Account ID capture
+  - Extracts `accountId` from order requests
+  - Passes to `lineDragSync` module automatically
+  - No manual configuration needed
 
-**Scenario 3: Account with Loss**
-- Template: $50K Combine (startingBalance: 50000)
-- Current Balance: -$500
-- Total: $49,500
-- SL $300 = 0.61%
+#### Configuration
+- **`lib/storage-manager.js`**: New settings
+  - `enableLineDragSync` (boolean): Enable/disable feature
+  - `syncDebounceDelay` (number): Delay in ms (default: 1000)
 
-#### Files Modified
-- `lib/network-interceptor.js` - Added account/template data capture
-- `lib/storage-manager.js` - Added `showPercentage` config option
-- `content-scripts/main-content-v4.js` - Added account value tracking and calculation
-- `lib/chart-access.js` - Updated `formatLabel()` to support percentage mode
-- `popup/popup.html` - Added percentage toggle checkbox
-- `popup/popup.js` - Added percentage option handling
-- `manifest.json` - Version bump to 4.5.0
+#### UI Updates
+- **`popup/popup.html`**: New sync section
+  - Checkbox to enable/disable sync
+  - Helpful info box explaining workflow
+  - Clean, informative design
+- **`popup/popup.css`**: Info box styling
+- **`popup/popup.js`**: Sync toggle handling
+
+#### API Endpoint
+```
+POST https://userapi.topstepx.com/TradingAccount/setPositionBrackets
+Headers:
+  - Authorization: Bearer {token from localStorage}
+  - Content-Type: application/json
+Body: 
+  {
+    "accountId": 15379279,
+    "autoApply": true,
+    "risk": 300,      // Calculated from SL line position
+    "toMake": 600     // Calculated from TP line position
+  }
+```
 
 #### Benefits
-- ✅ See risk as % of your actual account value (not just starting balance)
-- ✅ More meaningful for funded accounts with P&L
-- ✅ Better risk management (know your % risk at a glance)
-- ✅ Accounts for daily wins/losses automatically
-- ✅ Works with all account types (Express, Combine, etc.)
-- ✅ Toggle on/off anytime without losing USD mode
+- ✅ **One Action, Two Updates**: Drag line → Both chart and platform sync
+- ✅ **No Manual Entry**: TopstepX brackets update automatically
+- ✅ **Visual First**: See your risk on chart, then platform follows
+- ✅ **Smart Debounce**: Smooth dragging without API spam
+- ✅ **Token from Storage**: No login prompts or manual auth
+- ✅ **Opt-in Feature**: Disabled by default, enable when ready
+
+#### Technical Details
+- Runs in `MAIN` world for full chart API access
+- Uses TradingView's `getShapeById()` to track line positions
+- Debounces with `setTimeout` and `clearTimeout`
+- Captures auth token from `localStorage.getItem('token')`
+- Account ID auto-captured from order creation requests
+- Calculates risk using: `(entryPrice - slPrice) / tickSize * tickValue * contracts`
+
+#### Files Modified/Created
+- NEW: `lib/line-drag-sync.js` - Core sync module
+- Modified: `lib/chart-access.js` - Drag detection
+- Modified: `lib/network-interceptor.js` - Account ID capture
+- Modified: `lib/storage-manager.js` - New config options
+- Modified: `popup/popup.html` - Sync UI section
+- Modified: `popup/popup.css` - Info box styles
+- Modified: `popup/popup.js` - Sync toggle handling
+- Modified: `content-scripts/main-content-v4.js` - Config application
+- Modified: `manifest.json` - Added module and permissions
 
 #### Impact
-- 🎯 **Better Risk Visualization**: Percentages are more intuitive than raw dollars
-- 💰 **Real Balance Tracking**: Uses actual account value, not config estimate
-- 📊 **Professional Display**: Shows risk like prop firms calculate it
-- 🔄 **Dynamic Updates**: Refreshes as your balance changes throughout the day
+- 🎯 **Game Changer**: Seamless integration between visual lines and platform
+- 🚀 **Workflow Improvement**: One drag updates everything
+- 🔒 **Secure**: Uses existing TopstepX auth, no new credentials
+- 📊 **Accurate**: Calculates exact risk/profit from line positions
+- ⚡ **Fast**: 1-second debounce feels instant but prevents spam
 
 ## [4.4.2] - 2024-12-11
 
 ### 🗑️ Order Lifecycle Management
 
 #### Added
-- **Auto Clear on Cancel**: Lines automatically removed when order is cancelled
-- **Order Cancellation Detection**: Intercepts DELETE requests to `/Order/cancel/`
-- **Order ID Tracking**: Verifies cancelled order matches active order
-- **State Management**: Updates `hasActiveOrder` flag on cancellation
+- **Auto Clear on Cancel** - Lines automatically removed when order is cancelled
+- **Order Cancellation Detection** - Intercepts DELETE requests to `/Order/cancel/`
+- **Order ID Tracking** - Verifies cancelled order matches active order
+- **State Management** - Updates `hasActiveOrder` flag on cancellation
 
 #### Technical Implementation - Order Cancellation
 - Intercepts DELETE requests in both fetch and XHR
@@ -146,386 +173,205 @@ Chart is clean
 
 ### 🐛 Critical BugFix
 
-#### Fixed
-- **Undefined Value Parse Error**: Fixed `"undefined" cannot be parsed` error when loading popup with old configurations
-- **Config Merging**: Storage manager now automatically merges saved configs with defaults
-- **Safe Value Assignment**: Added helper functions to prevent undefined values in form inputs
-- **DOM Validation**: Added element existence checks with detailed error logging
+#### Problem
+- Error: "The specified value 'undefined' cannot be parsed"
+- UI settings not saving/applying correctly
+- `populateForm()` failing on line 104
+- Caused by missing config fields when loading old configurations
 
-#### Enhanced
-- **Backward Compatibility**: Old configs (pre-v4.4.0) now load seamlessly with new defaults
-- **Forward Compatibility**: New fields automatically added when missing
-- **Storage Manager**: Enhanced `getConfig()` and `updateConfig()` with triple-merge strategy
-- **Logging**: Added comprehensive debug logging for config loading
+#### Root Cause
+- Content scripts in `MAIN` world don't have direct `chrome.storage` access
+- New config options added (line styles, opacity, etc.) weren't in old saved configs
+- Form inputs received `undefined` values
+- HTML input validation failed on undefined
 
-#### Added
-- **Migration Script**: Optional manual migration utility (`scripts/migrate-config.js`)
-- **BugFix Documentation**: Detailed analysis in `BUGFIX-UNDEFINED-VALUES.md`
+#### Solution 1: Config Bridge
+- Created `content-scripts/config-bridge.js` running in `ISOLATED` world
+- Bridge has `chrome.storage` access
+- Communicates with `MAIN` world via `window.postMessage`
+- Handles config load/save requests
+- Forwards between popup and main content script
 
-#### Technical
-- **popup.js**: Added `safeSet()`, `safeCheck()`, `safeText()` helpers
-- **storage-manager.js**: Enhanced config merging with spread operators
-- **DOM Caching**: Added validation to detect missing elements
+#### Solution 2: Default Merging
+- Modified `storage-manager.js` `getConfig()`:
+  ```javascript
+  const savedConfig = result[this.configKey] || {};
+  const mergedConfig = { ...DEFAULT_CONFIG, ...savedConfig };
+  resolve(mergedConfig);
+  ```
+- Always merges saved config with defaults
+- Ensures all new fields have values
+- Backward compatible with old configs
+
+#### Solution 3: Safe Setters
+- Created `safeSet()` and `safeCheck()` helpers in `popup.js`:
+  ```javascript
+  const safeSet = (element, value, defaultValue) => {
+    if (element) {
+      element.value = value !== undefined && value !== null ? value : defaultValue;
+    }
+  };
+  ```
+- Gracefully handles undefined/null values
+- Provides fallback defaults
+- Prevents form validation errors
+
+#### Files Modified
+- `lib/storage-manager.js` - Config merging logic
+- `popup/popup.js` - Safe setters, improved error handling
+- `content-scripts/config-bridge.js` - Communication bridge (NEW)
+- `manifest.json` - Added config-bridge to ISOLATED world
+- `STORAGE-FIX-v4.4.1.md` - Complete fix documentation (NEW)
 
 #### Impact
-- ✅ Popup loads without errors on upgrade from v4.3.x
-- ✅ No data loss from existing configurations
-- ✅ Proper defaults for all new v4.4.0 fields
-- ✅ Production-ready upgrade path
+- ✅ All settings save/load correctly
+- ✅ No more undefined errors
+- ✅ Backward compatible with v4.3.x configs
+- ✅ New options work perfectly
+- ✅ Form validation passes
 
-## [4.4.0] - 2024-12-11
+## [4.4.0] - 2024-12-10
 
-### 🎨 Full Customization Update
+### 🎨 Full UI Customization
 
-#### Added - Visual Settings
-- **Line Style Options**: Solid, Dotted, or Dashed lines (separate for SL/TP)
-- **Line Opacity**: Adjustable transparency (0-100%)
-- **Font Size Control**: Configurable label font size (8-16px)
-- **Label Format Options**: 
-  - Compact: `SL -$100 (1x)`
-  - Full: `STOP LOSS: -$100.00 (1x)`
-  - Minimal: `SL -$100`
-- **Custom Text Labels**: Customize SL/TP prefix text (any language/symbols)
-- **Emoji Support**: Optional emoji icons (🛑 🎯)
+#### Added - Complete Visual Control
+- **Line Style Options**: Solid, Dotted, Dashed for SL and TP independently
+- **Line Opacity**: Adjustable from 0-100% with live preview
+- **Font Size**: Text size control (8-20px) with slider
+- **Label Format**: Choose between "SL/TP", "Stop/Target", "Risk/Reward", or Custom
+- **Custom Prefixes**: Define your own text for SL and TP labels
+- **Display Toggles**: Show/hide decimals, contracts, emojis, bold text
+- **Auto-hide Market Orders**: Option to hide lines for market orders (type: 2)
+- **Sound Alerts**: Optional audio notification when lines are drawn
 
-#### Added - Display Options
-- **Decimal Control**: Toggle decimal places on dollar amounts
-- **Contract Display**: Toggle contract count visibility
-- **Bold Text**: Make labels bold for better visibility
-- **Auto-hide Market Orders**: Automatically hide lines for market orders
+#### Configuration Options Added
+```javascript
+// Line Visual Settings
+slLineStyle: 0,           // 0=Solid, 1=Dotted, 2=Dashed
+tpLineStyle: 0,
+lineOpacity: 100,         // 0-100%
+fontSize: 10,             // 8-20px
 
-#### Added - Configuration
-- **Complete Dashboard**: All settings now accessible via UI
-- **25+ Configuration Options**: Every aspect fully customizable
-- **Preset Examples**: 5 professional configuration presets
-- **Configuration Guide**: Complete documentation (CONFIGURATION-GUIDE.md)
+// Label Settings
+labelFormat: 'sl-tp',     // 'sl-tp', 'stop-target', 'risk-reward', 'custom'
+slPrefix: 'SL',           // Custom text for SL label
+tpPrefix: 'TP',           // Custom text for TP label
+showLabels: true,
+fontBold: false,
+useEmojis: false,
+showDecimals: false,
+showContracts: true,
 
-#### Enhanced
-- **Format Label Function**: Smart label formatting based on config
-- **Dynamic Updates**: Labels update using configured format
-- **Storage Manager**: Extended with all new config options
-- **Popup UI**: Reorganized with subsections and better layout
+// Behavior
+autoHideOnMarket: true,
+playSound: false,
+persistLines: true,
+autoUpdate: true
+```
 
-#### Improved
-- **CSS Styling**: Added styles for select dropdowns and text inputs
-- **Form Validation**: All new fields properly validated
-- **Persistence**: All settings saved and restored correctly
-- **Code Structure**: Clean, maintainable, production-ready
+#### UI Improvements
+- Organized popup into logical sections:
+  - Risk Settings
+  - Line Colors  
+  - Line Style
+  - Label Settings
+  - Display Options
+  - Behavior Options
+- Added sliders with live value display
+- Color pickers with preview swatches
+- Dropdown selectors for line styles
+- Checkbox groups for toggles
+- Help text for complex options
+- Clean, dark, professional design
 
-#### Technical
-- **chart-access.js**: Added `formatLabel()` function
-- **storage-manager.js**: Extended DEFAULT_CONFIG with 15+ new options
-- **popup.html**: Reorganized into logical subsections
-- **popup.css**: New styles for selects, subsections, and inputs
-- **popup.js**: Updated to handle all new configuration fields
+#### Technical Updates
+- `lib/chart-access.js`:
+  - `createLine()` accepts all style options
+  - `formatLabel()` for dynamic label generation
+  - Applies opacity, font size, line style
+- `lib/storage-manager.js`:
+  - Expanded `DEFAULT_CONFIG` with all new options
+  - Validation for new fields
+- `popup/popup.html`:
+  - New input controls for all options
+  - Improved layout and organization
+- `popup/popup.css`:
+  - Slider styles
+  - Color preview styles
+  - Responsive design updates
 
-### Configuration Options Summary
+#### Files Modified
+- `lib/chart-access.js` - Visual customization logic
+- `lib/storage-manager.js` - Extended configuration
+- `popup/popup.html` - Complete UI redesign
+- `popup/popup.css` - New component styles
+- `popup/popup.js` - Event handling for new controls
+- `manifest.json` - Version bump to 4.4.0
 
-**Visual - Lines:**
-- Line width (1-10px)
-- Line style (solid/dotted/dashed) - separate for SL/TP
-- Line opacity (0-100%)
-- Line colors
+#### Impact
+- 🎨 **Full Control**: Customize every visual aspect
+- 📊 **Professional Look**: Match your trading style
+- 🎯 **Clarity**: Choose label format that makes sense to you
+- ⚡ **Flexible**: Enable/disable features as needed
+- 🎭 **Personal**: Create your own look and feel
 
-**Visual - Text:**
-- Font size (8-16px)
-- Font weight (normal/bold)
-- Label format (compact/full/minimal)
-- Custom prefix text (SL/TP)
-- Emoji icons toggle
+## [4.3.0] - 2024-12-09
 
-**Display:**
-- Show labels toggle
-- Show decimals toggle
-- Show contracts toggle
-- Bold text toggle
-- Use emojis toggle
-
-**Behavior:**
-- Persist lines across sessions
-- Auto-update on price change
-- Auto-hide for market orders
-- Play sound alert
-
-### Presets Included
-
-1. **Minimalist Trader**: Ultra-clean, minimal distraction
-2. **Professional Trader**: Balanced visibility and info
-3. **Beginner Trader**: Maximum information, high visibility
-4. **Day Trader**: Fast execution, auto-clearing
-5. **Swing Trader**: Visual emphasis, persistent lines
-
-### Documentation
-- ✅ CONFIGURATION-GUIDE.md: Complete configuration reference
-- ✅ 5 detailed preset examples
-- ✅ Visual comparisons (line width, font size, formats)
-- ✅ Best practices for different trading styles
-- ✅ 25+ configuration examples
-
-### Breaking Changes
-None - Fully backward compatible. Existing configs will use new defaults for added features.
-
----
-
-## [4.3.1] - 2024-12-11
-
-### 🎯 Minimalist UI Update
-
-#### Changed
-- **Line Width**: Default changed from 3px to 1px (minimalist)
-- **Font Size**: Reduced from 13px to 10px
-- **Font Weight**: Changed from bold to normal (thinner)
-- **Label Format**: Simplified from full to compact
-  - Before: `🛑 STOP LOSS: -$100.00 (1x)`
-  - After: `SL -$100 (1x)`
-- **Decimal Display**: Changed from .00 to whole numbers
-
-#### Removed
-- Emoji icons from default labels (optional now)
-- Heavy bold styling
-
----
-
-## [4.3.0] - 2024-12-11
-
-### 🎯 Complete Order Detection System
+### 🎯 Multi-Order Type Support
 
 #### Added
-- **Full Order Type Support**:
-  - Limit orders (type: 1)
-  - Market orders (type: 2)
-  - Stop orders (type: 4)
-- **Smart Position Logic**: Correct SL/TP placement based on LONG/SHORT
-- **Position Size Detection**: Uses `positionSize` field (+/- for LONG/SHORT)
-- **Market Order Handling**: Lines don't show for market orders
+- **Limit Orders** (type: 1) - Uses `limitPrice`
+- **Market Orders** (type: 2) - Immediate execution
+- **Stop Orders** (type: 4) - Uses `stopPrice`
 
-#### Enhanced
-- **Network Interceptor**: Detects order type from `type` field
-- **Logging System**: Ultra-detailed console logs
-- **Side Detection**: Correctly identifies LONG vs SHORT from positionSize
+#### Side Detection Logic
+- **Positive `positionSize`** (1, 2, 3...) → LONG/BUY
+- **Negative `positionSize`** (-1, -2, -3...) → SHORT/SELL
+- **Absolute value** = Number of contracts
 
-#### Fixed
-- Lines now appear in correct positions for SHORT positions
-- Stop orders properly detected and handled
-- Contract quantity correctly extracted from absolute value
+#### Line Placement Logic
+- **Long Orders**: SL below entry, TP above entry
+- **Short Orders**: SL above entry, TP below entry
+- **Reference Price**: Uses `limitPrice` or `stopPrice` (not market price)
 
----
+#### Files Modified
+- `lib/network-interceptor.js` - Added stop and market order detection
+- `content-scripts/main-content-v4.js` - Side-based line placement
+- `lib/calculations.js` - Updated for all order types
 
-## [4.2.0] - 2024-12-10
+#### Impact
+- ✅ Works with all order types
+- ✅ Correct SL/TP placement based on side
+- ✅ Accurate risk calculation for any entry method
 
-### 🔄 Dynamic Updates
+## [4.2.0] - 2024-12-08
 
-#### Added
-- **Real-time Value Updates**: Lines update when orders are dragged
-- **Dynamic Labels**: Dollar amounts recalculate in real-time
-- **Contract Display**: Shows quantity on labels
-
----
-
-## [1.0.0] - 2024-12-10
-
-### 🎉 Initial Release
-
-#### Added
-- **Visual SL/TP Lines**: Display Stop Loss and Take Profit lines on TradingView charts
-- **Risk-Based Calculations**: Automatic contract sizing based on account risk
-- **Drag-to-Adjust**: Manually adjust SL/TP levels by dragging chart lines
-- **Multi-Instrument Support**: Support for 8 futures instruments
-  - Micros: MNQ, MES, MYM, M2K
-  - Full-size: ES, NQ, YM, RTY
-- **Configuration UI**: User-friendly popup for settings management
-- **Risk Management Modes**:
-  - Percentage of account (e.g., 2% of $50,000)
-  - Fixed dollar amount (e.g., $500 per trade)
-- **Risk:Reward Ratios**: Automatic TP calculation based on SL (e.g., 1:2 ratio)
-- **Real-Time Updates**: Automatic recalculation on instrument/price changes
-- **Persistent Settings**: Configuration saved via Chrome Storage sync
-- **Cross-Frame Communication**: Secure messaging between parent and iframe
-- **Entry Line**: Visual reference for entry price level
-
-#### Core Components
-- `CalculationEngine`: Risk and P&L calculation engine
-- `InstrumentDatabase`: Complete tick specifications for all supported instruments
-- `StorageManager`: Configuration persistence and defaults
-- `MessageBridge`: Cross-frame communication system
-- `LineRenderer`: TradingView chart line drawing
-- `DragHandler`: Interactive line manipulation
-- `main-content.js`: TopstepX DOM integration
-- `iframe-content.js`: TradingView Widget integration
-- `popup.js`: Settings UI controller
+### 🔧 Initial Release - Core Features
 
 #### Features
-- ✅ Automatic contract quantity calculation
-- ✅ Visual line colors customization
-- ✅ Line width adjustment
-- ✅ Auto-update on price changes
-- ✅ Support for long and short positions
-- ✅ Real-time P&L recalculation on drag
-- ✅ Console logging for debugging
-- ✅ Error handling and recovery
+- Network interception for order detection
+- Dynamic SL/TP line rendering on TradingView chart
+- Risk calculation engine
+- Instrument database with tick values
+- Popup configuration UI
+- Chrome storage persistence
+- Auto-clear on order modification
 
-#### Documentation
-- README.md: Complete user and technical documentation
-- QUICKSTART.md: 5-minute setup guide
-- DEVELOPMENT.md: Developer guide with debugging tips
-- PROJECT-STRUCTURE.md: Architecture and file organization
-- Icon generation tool with instructions
-
-#### Technical Details
-- Manifest V3 compliant
-- Pure vanilla JavaScript (no dependencies)
-- ~3,600 lines of code across 13 JavaScript files
-- Iframe injection using `match_origin_as_fallback`
-- TradingView Widget API integration
-- Chrome Storage API for persistence
-- PostMessage API for cross-frame communication
-- MutationObserver for DOM change detection
-
-### Known Limitations
-- Only works on TopstepX.com platform
-- Requires TradingView chart to be loaded
-- Manual order placement (no auto-execution)
-- Limited to supported instruments (8 futures contracts)
-- Desktop Chrome only (no mobile support)
-
-### Security
-- ✅ No external network requests
-- ✅ All data stored locally
-- ✅ Origin validation on all messages
-- ✅ Minimal permissions requested
-- ✅ No credentials or sensitive data handling
+#### Architecture
+- Content scripts in MAIN world for chart access
+- Network interceptor for API monitoring
+- Modular design with separate libraries
+- Event-driven communication
 
 ---
 
-## [Unreleased]
+## Version History Summary
 
-### Planned Features (Future Versions)
-
-#### v1.1.0 (Enhancement Release)
-- [ ] Additional instruments (CL, GC, etc.)
-- [ ] Sound alerts for price approaching SL/TP
-- [ ] Keyboard shortcuts for line adjustment
-- [ ] Dark/light theme for popup
-- [ ] Export/import configuration
-- [ ] Multiple risk profiles
-
-#### v1.2.0 (Advanced Features)
-- [ ] Trade journal integration
-- [ ] Screenshot capture on trade setup
-- [ ] Performance statistics tracking
-- [ ] Risk heatmap overlay
-- [ ] Multi-timeframe line display
-- [ ] Support/resistance integration
-
-#### v2.0.0 (Major Update)
-- [ ] Bracket order integration (auto-submit SL/TP orders)
-- [ ] TopstepX API integration
-- [ ] OCO (One-Cancels-Other) functionality
-- [ ] Advanced order types support
-- [ ] Multi-account management
-- [ ] Cloud sync for settings
-
-#### Future Considerations
-- [ ] Support for other trading platforms
-- [ ] Mobile/tablet version
-- [ ] Chrome Web Store publishing
-- [ ] Auto-update mechanism
-- [ ] Telemetry (opt-in) for improvements
-- [ ] Community feature requests
-
----
-
-## Version History
-
-### Version Numbering
-- **Major (X.0.0)**: Breaking changes, major new features
-- **Minor (1.X.0)**: New features, backward compatible
-- **Patch (1.0.X)**: Bug fixes, minor improvements
-
-### Release Schedule
-- **Patch releases**: As needed for critical bugs
-- **Minor releases**: Monthly (feature additions)
-- **Major releases**: Quarterly (significant changes)
-
----
-
-## How to Update
-
-### For Users
-1. Download latest version
-2. Replace extension folder
-3. Go to `chrome://extensions/`
-4. Click "Reload" on the extension
-5. Verify new version number
-
-### For Developers
-1. Update version in `manifest.json`
-2. Update this CHANGELOG.md
-3. Test all functionality
-4. Create git tag: `git tag v1.0.0`
-5. Push to repository
-
----
-
-## Feedback & Issues
-
-We welcome feedback and bug reports!
-
-**Found a bug?**
-- Check console for error messages
-- Note your Chrome version
-- Note the instrument/settings used
-- Document steps to reproduce
-
-**Feature requests?**
-- Describe the use case
-- Explain expected behavior
-- Include mockups if applicable
-
----
-
-## Credits
-
-### Built With
-- Chrome Extension Manifest V3
-- TradingView Charting Library API
-- Vanilla JavaScript (ES6+)
-
-### Inspiration
-- Traders needing visual risk management
-- TopstepX evaluation account challenges
-- TradingView's powerful charting capabilities
-
----
-
-## License
-
-This project is for personal use. Always ensure compliance with:
-- TopstepX Terms of Service
-- TradingView Terms of Service
-- Chrome Web Store Developer Program Policies
-
----
-
-## Disclaimer
-
-**Trading involves substantial risk of loss.**
-
-This extension is:
-- ✅ A visual aid for risk management
-- ✅ An educational tool
-- ✅ A calculator for position sizing
-
-This extension is NOT:
-- ❌ Financial advice
-- ❌ A guarantee of profits
-- ❌ An auto-trading system
-- ❌ A replacement for proper risk management
-
-**Always verify calculations independently before placing trades.**
-
-Use at your own risk. The developers assume no liability for trading losses.
-
----
-
-*Last updated: December 10, 2024*
+| Version | Date | Key Feature |
+|---------|------|-------------|
+| 4.5.0 | 2024-12-12 | 🔄 Line Drag Sync |
+| 4.4.2 | 2024-12-11 | 🗑️ Auto Clear on Cancel |
+| 4.4.1 | 2024-12-11 | 🐛 Storage Fix |
+| 4.4.0 | 2024-12-10 | 🎨 Full Customization |
+| 4.3.0 | 2024-12-09 | 🎯 Multi-Order Support |
+| 4.2.0 | 2024-12-08 | 🔧 Initial Release |

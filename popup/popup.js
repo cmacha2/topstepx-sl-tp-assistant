@@ -77,7 +77,6 @@ class PopupController {
       showLabels: document.getElementById('showLabels'),
       showDecimals: document.getElementById('showDecimals'),
       showContracts: document.getElementById('showContracts'),
-      showPercentage: document.getElementById('showPercentage'),
       fontBold: document.getElementById('fontBold'),
       useEmojis: document.getElementById('useEmojis'),
 
@@ -86,6 +85,9 @@ class PopupController {
       autoUpdate: document.getElementById('autoUpdate'),
       autoHideOnMarket: document.getElementById('autoHideOnMarket'),
       playSound: document.getElementById('playSound'),
+      
+      // Line Drag Sync
+      enableLineDragSync: document.getElementById('enableLineDragSync'),
 
       // Buttons
       saveBtn: document.getElementById('saveBtn'),
@@ -174,7 +176,6 @@ class PopupController {
     safeCheck(this.elements.showLabels, config.showLabels, true);
     safeCheck(this.elements.showDecimals, config.showDecimals, false);
     safeCheck(this.elements.showContracts, config.showContracts, true);
-    safeCheck(this.elements.showPercentage, config.showPercentage, false);
     safeCheck(this.elements.fontBold, config.fontBold, false);
     safeCheck(this.elements.useEmojis, config.useEmojis, false);
 
@@ -183,6 +184,9 @@ class PopupController {
     safeCheck(this.elements.autoUpdate, config.autoUpdate, true);
     safeCheck(this.elements.autoHideOnMarket, config.autoHideOnMarket, true);
     safeCheck(this.elements.playSound, config.playSound, false);
+    
+    // Line Drag Sync
+    safeCheck(this.elements.enableLineDragSync, config.enableLineDragSync, false);
     
     console.log('[Popup] Config loaded successfully');
   }
@@ -340,7 +344,6 @@ class PopupController {
       labelFormat: this.elements.labelFormat.value,
       showDecimals: this.elements.showDecimals.checked,
       showContracts: this.elements.showContracts.checked,
-      showPercentage: this.elements.showPercentage.checked,
 
       // Label Text Customization
       slPrefix: this.elements.slPrefix.value.trim() || 'SL',
@@ -352,6 +355,10 @@ class PopupController {
       autoUpdate: this.elements.autoUpdate.checked,
       autoHideOnMarket: this.elements.autoHideOnMarket.checked,
       playSound: this.elements.playSound.checked,
+      
+      // Line Drag Sync
+      enableLineDragSync: this.elements.enableLineDragSync.checked,
+      syncDebounceDelay: 1000, // Fixed 1 second
 
       // Advanced (from defaults)
       roundContracts: 'down',

@@ -8,8 +8,8 @@
   ╔══════════════════════════════════════════╗
   ║  TopstepX SL/TP Assistant v4.5.0        ║
   ║  BUILD: ${BUILD_TIME}                   ║
-  ║  STATUS: 📊 PERCENTAGE MODE ENABLED     ║
-  ║  CONFIG: REAL ACCOUNT BALANCE           ║
+  ║  STATUS: 🔄 LINE DRAG SYNC ENABLED      ║
+  ║  CONFIG: AUTO-SYNC TO TOPSTEPX          ║
   ╚══════════════════════════════════════════╝
   `, 'color: #00ff00; font-weight: bold; font-size: 16px;');
 
@@ -19,11 +19,7 @@
     price: null,
     quantity: 1,
     side: 'long',
-    hasActiveOrder: false,  // NEW: Only show lines when there's an active limit order
-    accountData: null,      // Current account data (balance, accountId, etc.)
-    templateData: null,     // Template data (starting balance)
-    activeAccountId: null,  // Currently active account ID
-    totalAccountValue: null // Starting balance + current balance
+    hasActiveOrder: false  // NEW: Only show lines when there's an active limit order
   };
 
   let config = null;
@@ -53,6 +49,15 @@
         console.log('[TopstepX v4] 📥 Config received from bridge:', event.data.config);
         config = event.data.config;
         configReady = true;
+        
+        // Apply line drag sync configuration
+        if (typeof window.lineDragSync !== 'undefined') {
+          window.lineDragSync.setEnabled(config.enableLineDragSync || false);
+          if (config.syncDebounceDelay) {
+            window.lineDragSync.debounceDelay = config.syncDebounceDelay;
+          }
+          console.log('[TopstepX v4] 🔄 Line drag sync:', config.enableLineDragSync ? 'ENABLED' : 'DISABLED');
+        }
         
         // If we're waiting for config, continue initialization
         if (!chartAccess) {
@@ -180,20 +185,6 @@
             console.log('[TopstepX v4] 🗑️ Lines cleared after order cancellation');
           }
         });
-
-        // Listen for account data (balance info)
-        networkInterceptor.on('accountDataCaptured', (data) => {
-          console.log('[TopstepX v4] 💰 Account data captured:', data.accounts.length, 'accounts');
-          state.accountData = data.accounts;
-          updateTotalAccountValue();
-        });
-
-        // Listen for template data (starting balance)
-        networkInterceptor.on('templateDataCaptured', (data) => {
-          console.log('[TopstepX v4] 🎯 Template data captured:', data.templates.length, 'templates');
-          state.templateData = data.templates;
-          updateTotalAccountValue();
-        });
         
         console.log('[TopstepX v4] ✅ Network interceptor setup');
       } else {
@@ -224,46 +215,6 @@
     } catch (error) {
       console.error('[TopstepX v4] ❌ Initialization failed:', error);
     }
-  }
-
-  /**
-   * Update total account value based on template and current balance
-   * Total = Starting Balance (from template) + Current Balance (from account)
-   */
-  function updateTotalAccountValue() {
-    if (!state.accountData || !state.templateData) {
-      console.log('[TopstepX v4] ⏳ Waiting for both account and template data...');
-      return;
-    }
-
-    // Find the active account (use the first one for now, or find by accountId)
-    // In the future, we could detect which account is being traded
-    const activeAccount = state.accountData[0]; // First account by default
-    if (!activeAccount) {
-      console.log('[TopstepX v4] ⚠️ No active account found');
-      return;
-    }
-
-    state.activeAccountId = activeAccount.accountId;
-
-    // Find the template for this account
-    const template = state.templateData.find(t => t.id === activeAccount.templateId);
-    if (!template) {
-      console.log('[TopstepX v4] ⚠️ Template not found for account');
-      return;
-    }
-
-    // Calculate total account value = starting balance + current balance
-    const startingBalance = template.startingBalance || 0;
-    const currentBalance = activeAccount.balance || 0;
-    state.totalAccountValue = startingBalance + currentBalance;
-
-    console.log('[TopstepX v4] 💎 Total Account Value Calculated:');
-    console.log('[TopstepX v4] - Account:', activeAccount.accountName);
-    console.log('[TopstepX v4] - Template:', template.name);
-    console.log('[TopstepX v4] - Starting Balance:', startingBalance);
-    console.log('[TopstepX v4] - Current Balance:', currentBalance);
-    console.log('[TopstepX v4] - Total Value:', state.totalAccountValue);
   }
   
   /**
@@ -444,10 +395,9 @@
       console.log('[TopstepX v4] 🔴 SL Price:', slPrice, state.side === 'long' ? '(below entry)' : '(above entry)');
       console.log('[TopstepX v4] 🟢 TP Price:', tpPrice, state.side === 'long' ? '(above entry)' : '(below entry)');
       console.log('[TopstepX v4] 📊 Contracts:', contracts);
-      console.log('[TopstepX v4] 💰 Total Account Value:', state.totalAccountValue);
 
       // Update lines on chart!
-      chartAccess.updateLines(slPrice, tpPrice, state.price, config, contracts, instrument, state.totalAccountValue);
+      chartAccess.updateLines(slPrice, tpPrice, state.price, config, contracts, instrument);
 
       console.log('[TopstepX v4] ✅ Lines updated on chart!');
 
