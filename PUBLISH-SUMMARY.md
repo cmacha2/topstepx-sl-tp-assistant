@@ -427,3 +427,5 @@ Antes de enviar, verifica:
 **¡Tu extensión está lista para el mundo!** 🌍✨
 
 
+
+

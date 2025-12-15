@@ -6,9 +6,9 @@
   const BUILD_TIME = new Date().toISOString().slice(0, 19).replace('T', ' ');
   console.log(`%c
   ╔══════════════════════════════════════════╗
-  ║  TopstepX SL/TP Assistant v4.5.6        ║
+  ║  TopstepX SL/TP Assistant v4.5.4        ║
   ║  BUILD: ${BUILD_TIME}                   ║
-  ║  STATUS: ✅ AUTO CLEAR ORDERS           ║
+  ║  STATUS: ✅ PERSISTENT LINES            ║
   ║  FEATURES: AUTO SYNC & RESTORE          ║
   ╚══════════════════════════════════════════╝
   `, 'color: #00ff00; font-weight: bold; font-size: 16px;');
@@ -252,8 +252,8 @@
         }, 1000);
       }
       
-      // 6. Setup chart reconnection watcher (for route changes)
-      setupChartReconnectionWatcher();
+      // 6. Start chart watchdog for SPA navigation
+      startChartWatchdog();
 
     } catch (error) {
       console.error('[TopstepX v4] ❌ Initialization failed:', error);
@@ -261,70 +261,89 @@
   }
   
   /**
-   * Setup watcher to detect when chart is destroyed and recreated
-   * This happens when user navigates to another route and comes back
+   * Watchdog to detect chart recreation (SPA navigation)
+   * When user navigates away and back, the chart is destroyed and recreated
+   * This watchdog detects that and restores the lines
    */
-  function setupChartReconnectionWatcher() {
-    let lastChartId = chartAccess?.iframe?.id || null;
-    let isWatching = true;
+  let chartWatchdogInterval = null;
+  let lastChartId = null;
+  
+  function startChartWatchdog() {
+    // Clear existing watchdog
+    if (chartWatchdogInterval) {
+      clearInterval(chartWatchdogInterval);
+    }
     
-    console.log('[TopstepX v4] 👀 Chart reconnection watcher started');
+    // Store current chart ID
+    if (chartAccess && chartAccess.iframe) {
+      lastChartId = chartAccess.iframe.id;
+    }
     
-    // Check every 2 seconds if chart still exists or has changed
-    const watchInterval = setInterval(async () => {
-      if (!isWatching) return;
-      
+    // Check every 2 seconds if chart changed
+    chartWatchdogInterval = setInterval(async () => {
       try {
-        // Check if our current chart reference is still valid
-        const currentIframe = chartAccess?.iframe;
-        const chartStillExists = currentIframe && document.contains(currentIframe);
+        // Find current chart iframe
+        const currentIframe = document.querySelector('iframe[id^="tradingview_"]');
         
-        if (!chartStillExists) {
-          console.log('[TopstepX v4] 🔄 Chart disappeared - looking for new chart...');
+        if (!currentIframe) {
+          // Chart not found - user probably navigated away
+          console.log('[TopstepX v4] 🔄 Chart not found - waiting for return...');
+          return;
+        }
+        
+        // Check if chart ID changed (chart was recreated)
+        if (currentIframe.id !== lastChartId) {
+          console.log('[TopstepX v4] 🔄 Chart recreated! Reconnecting...');
+          lastChartId = currentIframe.id;
           
-          // Chart was destroyed (user navigated away)
-          // Try to find the new chart
-          const newChartFound = await chartAccess.findChart(30);
+          // Wait for chart to be fully ready
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
-          if (newChartFound) {
-            const newChartId = chartAccess.iframe?.id;
-            console.log('[TopstepX v4] ✅ New chart found:', newChartId);
-            
-            // Check if we have an order to restore
-            if (orderContext && orderContext.hasOrder()) {
-              const order = orderContext.getOrder();
-              console.log('[TopstepX v4] 🔄 Restoring lines after route change...');
-              
-              // Wait for chart to be fully ready
-              setTimeout(() => {
-                // Restore state from persisted order
-                state.symbol = order.symbol;
-                state.price = order.entryPrice;
-                state.quantity = order.quantity;
-                state.side = order.side;
-                state.hasActiveOrder = true;
-                
-                restoreOrderLines(order);
-              }, 1500);
-            }
-            
-            lastChartId = newChartId;
-          }
+          // Reconnect to new chart
+          await reconnectToChart();
         }
       } catch (e) {
-        // Ignore errors during watch
+        // Ignore errors during watchdog
       }
     }, 2000);
     
-    // Also watch for visibility changes (tab switching)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[TopstepX v4] 👁️ Page became visible - checking chart...');
-        // Trigger a check
+    console.log('[TopstepX v4] 👀 Chart watchdog started');
+  }
+  
+  /**
+   * Reconnect to chart after SPA navigation
+   */
+  async function reconnectToChart() {
+    try {
+      console.log('[TopstepX v4] 🔄 Reconnecting to chart...');
+      
+      // Create new chart access instance
+      chartAccess = new ChartAccess(apiClient, orderContext);
+      
+      // Find the chart
+      const found = await chartAccess.findChart(30);
+      
+      if (!found) {
+        console.error('[TopstepX v4] ❌ Could not reconnect to chart');
+        return;
       }
-    });
-    
-    console.log('[TopstepX v4] 👀 Watcher interval set up');
+      
+      console.log('[TopstepX v4] ✅ Reconnected to chart!');
+      
+      // Restore persisted order lines
+      if (orderContext && orderContext.hasOrder()) {
+        const order = orderContext.getOrder();
+        console.log('[TopstepX v4] 📦 Restoring order lines after navigation...');
+        
+        // Wait a moment for chart to be fully ready
+        setTimeout(() => {
+          restoreOrderLines(order);
+        }, 1000);
+      }
+      
+    } catch (error) {
+      console.error('[TopstepX v4] ❌ Failed to reconnect to chart:', error);
+    }
   }
   
   /**
@@ -430,10 +449,10 @@
       changed = true;
     }
 
-    // If we have complete order data from DOM and there's an active order, update lines
-    if (changed && state.hasActiveOrder) {
-      // Only update lines if we already have an active order
-      // DOM alone doesn't activate lines - need network interceptor or restored order
+    // If we have complete order data from DOM, update lines
+    if (changed) {
+      // DOM data indicates there's likely an active order
+      // (will be validated in updateLines)
       updateLines();
     }
   }
@@ -444,12 +463,25 @@
    */
   function restoreOrderLines(order) {
     if (!order || !chartAccess || !chartAccess.chart || !config) {
-      console.warn('[TopstepX v4] ⚠️ Cannot restore lines - missing data');
+      console.warn('[TopstepX v4] ⚠️ Cannot restore lines - missing data', {
+        hasOrder: !!order,
+        hasChartAccess: !!chartAccess,
+        hasChart: !!chartAccess?.chart,
+        hasConfig: !!config
+      });
       return;
     }
 
     try {
       console.log('[TopstepX v4] 🔄 Restoring lines for order:', order.orderId);
+      console.log('[TopstepX v4] 📍 Saved positions:', {
+        symbol: order.symbol,
+        entry: order.entryPrice,
+        sl: order.slPrice,
+        tp: order.tpPrice,
+        slDollars: order.slDollars,
+        tpDollars: order.tpDollars
+      });
 
       // Get instrument specs
       const instrument = InstrumentDatabase.getInstrument(order.symbol);
@@ -465,7 +497,7 @@
       state.side = order.side;
       state.hasActiveOrder = true;
 
-      // Restore lines on chart
+      // Restore lines on chart using saved prices
       chartAccess.updateLines(
         order.slPrice,
         order.tpPrice,
@@ -475,7 +507,7 @@
         instrument
       );
 
-      console.log('[TopstepX v4] ✅ Lines restored successfully!');
+      console.log('[TopstepX v4] ✅ Lines restored at SL:', order.slPrice, 'TP:', order.tpPrice);
     } catch (error) {
       console.error('[TopstepX v4] ❌ Error restoring lines:', error);
     }
@@ -485,16 +517,18 @@
    * Calculate and update lines
    */
   function updateLines() {
-    // CRITICAL: Only show lines if there's a confirmed active order
-    // This prevents showing lines when just viewing the order ticket
-    if (!state.hasActiveOrder) {
-      console.log('[TopstepX v4] ⏸️ No active order - lines not shown');
-      return;
-    }
-    
     if (!state.symbol || !state.price || !chartAccess || !chartAccess.chart) {
       console.log('[TopstepX v4] ⏳ Waiting for data... Symbol:', state.symbol, 'Price:', state.price, 'Chart:', !!chartAccess?.chart);
       return;
+    }
+    
+    // If we have price and symbol data, assume there's an active order
+    // (unless explicitly marked as no active order by market order detection)
+    if (!state.hasActiveOrder) {
+      // If we reached here with data, it means DOM detected an order
+      // Set hasActiveOrder to true
+      state.hasActiveOrder = true;
+      console.log('[TopstepX v4] 📍 Order detected via DOM - enabling lines');
     }
 
     try {

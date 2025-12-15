@@ -5,6 +5,52 @@ All notable changes to the TopstepX SL/TP Visual Extension will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.5] - 2024-12-12
+
+### 🚀 Stop Orders Support & Persistent Lines
+
+#### Added - Stop Order Support
+- **STOP order detection**: Now correctly extracts price from `stopPrice` for stop orders (type 3)
+- **Order type logging**: Clear console logs showing LIMIT/STOP/MARKET order types
+- **Raw price debugging**: Logs show both `limitPrice` and `stopPrice` values
+
+#### Added - Persistent Lines on Navigation
+- **Chart Watchdog**: Monitors chart recreation when navigating in SPA
+- **Auto-reconnect**: Automatically reconnects to chart after navigation
+- **Line restoration**: Restores SL/TP lines at exact saved positions
+
+#### Fixed - XHR Blob Error
+- **ResponseType check**: Only reads `responseText` when responseType is text/json
+- **Prevents errors**: No more "Failed to read responseText from blob" errors
+
+#### Fixed - Drag Detection
+- **Polling-based detection**: Uses 500ms polling instead of non-existent `onEntityChanged`
+- **Position tracking**: Tracks last known positions to detect changes
+- **Debounced API calls**: 800ms local debounce + 1000ms API debounce
+
+#### Technical Details
+
+**Order Type Detection (TopstepX)**:
+| Type | Name | Price Field |
+|------|------|-------------|
+| 1 | LIMIT | `limitPrice` |
+| 2 | MARKET | (none) |
+| 3 | STOP | `stopPrice` |
+
+**Persistence Flow**:
+```
+User drags lines → localStorage updated → Navigate away
+→ Chart destroyed → User returns → Watchdog detects new chart
+→ Reconnects → Restores lines from localStorage
+```
+
+#### Files Modified
+- `lib/network-interceptor.js` - Stop order support, blob fix
+- `lib/chart-access.js` - Polling-based drag detection
+- `content-scripts/main-content-v4.js` - Chart watchdog, reconnection
+
+---
+
 ## [4.5.1] - 2024-12-12
 
 ### 🐛 Critical Fix - Lines Not Showing

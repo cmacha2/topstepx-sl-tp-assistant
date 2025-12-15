@@ -154,3 +154,5 @@ By installing and using the Extension, you consent to this Privacy Policy and Te
 **This policy is effective as of December 11, 2024.**
 
 
+
+
