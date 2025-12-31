@@ -1,0 +1,152 @@
+═══════════════════════════════════════════════════════════════════
+CHROME WEB STORE - RESPUESTAS PARA EL FORMULARIO
+TopstepX SL/TP Assistant v4.5.5
+═══════════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════════
+1. UN SOLO PROPÓSITO
+═══════════════════════════════════════════════════════════════════
+
+Descripción de un solo propósito:
+───────────────────────────────────────────────────────────────────
+This extension provides visual risk management for TopstepX futures traders by automatically drawing Stop Loss and Take Profit lines on trading charts. When a trader places a limit or stop order on TopstepX, the extension detects the order and calculates appropriate Stop Loss and Take Profit levels based on user-configured risk settings. It then draws color-coded horizontal lines (red for Stop Loss, green for Take Profit) directly on the TradingView chart with dollar value labels. The lines update dynamically when orders are modified or dragged, and disappear when orders are cancelled or executed. This single-purpose tool helps traders visualize their risk-reward ratio and potential profit/loss in real-time without leaving the chart.
+───────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════
+2. JUSTIFICACIÓN DE PERMISOS
+═══════════════════════════════════════════════════════════════════
+
+Justificación de "storage":
+───────────────────────────────────────────────────────────────────
+The storage permission is required to save user configuration preferences locally on their device. This includes: visual settings (Stop Loss line color, Take Profit line color, line width), risk management settings (account size, risk percentage, default Stop Loss and Take Profit dollar amounts, risk-reward ratio), and display options (whether to persist lines across sessions, whether to show dollar labels on lines). All data is stored exclusively on the user's local device using chrome.storage.local API. No data is ever transmitted to external servers or shared with third parties. Users can modify these settings at any time through the extension popup interface.
+───────────────────────────────────────────────────────────────────
+
+Justificación de "activeTab":
+───────────────────────────────────────────────────────────────────
+The activeTab permission is required to access the TopstepX.com tab where the user is actively trading. This permission allows the extension to detect when the user is on a TopstepX trading chart and to inject the necessary visual elements (Stop Loss and Take Profit lines) onto the chart. The extension only accesses the page when the user is actively viewing it and never in the background. This permission is essential for the core functionality of displaying visual risk management lines on the trading chart that the user is currently viewing.
+───────────────────────────────────────────────────────────────────
+
+Justificación de "scripting":
+───────────────────────────────────────────────────────────────────
+The scripting permission is required to inject JavaScript code into TopstepX.com pages to enable the core functionality of drawing visual Stop Loss and Take Profit lines on trading charts. This permission allows the extension to: (1) intercept and parse order creation/modification API requests to detect when traders place or modify orders, (2) access the TradingView chart API that is embedded in TopstepX to draw horizontal lines programmatically, (3) add dollar value labels to the lines, and (4) remove lines when orders are cancelled or executed. Without this permission, the extension cannot fulfill its single purpose of providing visual risk management indicators on trading charts.
+───────────────────────────────────────────────────────────────────
+
+Justificación de Permiso de host:
+───────────────────────────────────────────────────────────────────
+Host permissions for "https://topstepx.com/*" and "https://*.tradingview.com/*" are essential for the extension's core functionality.
+
+TopstepX.com access is required to: (1) detect when users create, modify, or cancel orders by monitoring network requests to the TopstepX API, (2) inject visual Stop Loss and Take Profit lines onto the trading charts, (3) access order data such as instrument symbol, entry price, position size, and order type to calculate appropriate Stop Loss and Take Profit levels.
+
+TradingView.com access is required because TopstepX embeds TradingView charts in their platform. The extension needs to access the TradingView chart API (chart.createOrderLine) to draw the visual lines and labels on the chart canvas. Without access to the TradingView domain, the extension cannot render the visual risk management lines that constitute its single purpose.
+
+No data is collected, stored externally, or transmitted to any servers. All functionality is local to the user's browser.
+───────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════
+3. CÓDIGO REMOTO
+═══════════════════════════════════════════════════════════════════
+
+¿Usas código remoto?
+───────────────────────────────────────────────────────────────────
+❌ NO, no estoy usando Código remoto
+
+(NO necesitas llenar la justificación si seleccionas NO)
+───────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════
+4. USO DE DATOS
+═══════════════════════════════════════════════════════════════════
+
+¿Qué datos de los usuarios planeas recopilar ahora o en el futuro?
+───────────────────────────────────────────────────────────────────
+❌ NINGUNO - No marques ninguna casilla
+
+NO selecciones:
+- [ ] información de identificación personal
+- [ ] Información de salud
+- [ ] Información financiera y de pagos
+- [ ] Información de autenticación
+- [ ] Comunicaciones personales
+- [ ] Ubicación
+- [ ] Historial web
+- [ ] Actividad del usuario
+- [ ] Contenido de sitios web
+───────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════
+5. CERTIFICACIONES
+═══════════════════════════════════════════════════════════════════
+
+Certifico que las siguientes divulgaciones son verdaderas:
+───────────────────────────────────────────────────────────────────
+✅ Marca las 3 casillas:
+
+[✓] No vendo ni transfiero los datos de los usuarios a terceros,
+    excepto en los casos de uso aprobados
+
+[✓] No uso ni transfiero datos de usuarios para propósitos no
+    relacionados con el propósito específico de mi elemento
+
+[✓] No uso ni transfiero datos del usuario para determinar su
+    solvencia o realizar actividades crediticias
+───────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════
+6. POLÍTICA DE PRIVACIDAD
+═══════════════════════════════════════════════════════════════════
+
+URL de la política de privacidad:
+───────────────────────────────────────────────────────────────────
+https://github.com/cmacha2/topstepx-sl-tp-assistant/blob/main/PRIVACY-POLICY.md
+
+(Alternativa con formato raw):
+https://raw.githubusercontent.com/cmacha2/topstepx-sl-tp-assistant/main/PRIVACY-POLICY.md
+───────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════
+NOTAS IMPORTANTES
+═══════════════════════════════════════════════════════════════════
+
+✅ Todos los textos están en INGLÉS (requisito de Chrome Web Store)
+✅ Ningún campo excede el límite de 1,000 caracteres
+✅ Las justificaciones son claras y específicas
+✅ No recopilas ningún dato de usuario
+✅ La política de privacidad es pública en GitHub
+
+═══════════════════════════════════════════════════════════════════
+RESUMEN DE CARACTERES
+═══════════════════════════════════════════════════════════════════
+
+Un solo propósito:              676/1,000 caracteres ✅
+Justificación storage:          645/1,000 caracteres ✅
+Justificación activeTab:        556/1,000 caracteres ✅
+Justificación scripting:        655/1,000 caracteres ✅
+Justificación host permissions: 978/1,000 caracteres ✅
+URL política de privacidad:     100/2,048 caracteres ✅
+
+═══════════════════════════════════════════════════════════════════
+CHECKLIST ANTES DE ENVIAR
+═══════════════════════════════════════════════════════════════════
+
+[ ] Copié la descripción de un solo propósito
+[ ] Copié todas las justificaciones de permisos (storage, activeTab, scripting, host)
+[ ] Seleccioné "NO" para código remoto
+[ ] NO marqué ninguna casilla en "Uso de datos"
+[ ] Marqué las 3 certificaciones
+[ ] Copié la URL de la política de privacidad
+[ ] Revisé que todo esté correcto
+[ ] Listo para hacer click en "Submit for Review"
+
+═══════════════════════════════════════════════════════════════════
+¡BUENA SUERTE CON LA PUBLICACIÓN!
+═══════════════════════════════════════════════════════════════════
+
+Tiempo estimado de revisión: 2-5 días hábiles
+Típicamente: 2-3 días
+
+Si tienes dudas durante el proceso, consulta:
+- CHROME-STORE-SUBMISSION.md (guía completa)
+- PUBLICAR-CHROME-STORE.md (guía rápida en español)
+- FINAL-CHECKLIST.md (checklist completa)
+
+═══════════════════════════════════════════════════════════════════

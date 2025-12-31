@@ -6,7 +6,7 @@
   const BUILD_TIME = new Date().toISOString().slice(0, 19).replace('T', ' ');
   console.log(`%c
   ╔══════════════════════════════════════════╗
-  ║  TopstepX SL/TP Assistant v4.5.4        ║
+  ║  TopstepX SL/TP Assistant v4.5.7        ║
   ║  BUILD: ${BUILD_TIME}                   ║
   ║  STATUS: ✅ PERSISTENT LINES            ║
   ║  FEATURES: AUTO SYNC & RESTORE          ║
@@ -30,6 +30,7 @@
   let apiClient = null;
   let orderContext = null;
   let configReady = false;
+  let initializationStarted = false; // Prevent double initialization
 
   /**
    * Request config from ISOLATED world
@@ -171,6 +172,13 @@
    * Continue initialization after config is loaded
    */
   async function continueInitialization() {
+    // Prevent double initialization
+    if (initializationStarted) {
+      console.log('[TopstepX v4] ⏭️ Initialization already started, skipping');
+      return;
+    }
+    initializationStarted = true;
+    
     try {
       // 1. Setup network interceptor (in MAIN world)
       if (typeof NetworkInterceptor !== 'undefined') {
@@ -190,10 +198,18 @@
           handleOrderData(orderData);
         });
         
-        // Listen for order modification
+        // Listen for order modification (price edit via drag)
         networkInterceptor.on('orderModified', (orderData) => {
           console.log('[TopstepX v4] ✏️ Order modified:', orderData);
-          handleOrderData(orderData);
+          
+          // If only price changed, update the entry price and recalculate lines
+          if (orderData.price && orderData.price !== state.price) {
+            console.log('[TopstepX v4] 📍 Entry price changed from', state.price, 'to', orderData.price);
+            state.price = orderData.price;
+            
+            // Recalculate and update lines with new entry price
+            updateLines();
+          }
         });
 
         // Listen for order cancellation
@@ -417,6 +433,12 @@
   function handleDOMData(data) {
     console.log('[TopstepX v4] 📝 DOM Data:', data);
 
+    // Ignore DOM data if we're currently dragging
+    if (chartAccess && chartAccess.isCurrentlyDragging && chartAccess.isCurrentlyDragging()) {
+      console.log('[TopstepX v4] 🖱️ Ignoring DOM data during drag');
+      return;
+    }
+
     let changed = false;
 
     if (data.symbol && data.symbol !== state.symbol) {
@@ -443,16 +465,25 @@
       changed = true;
     }
 
+    // IMPORTANT: Ignore side changes from DOM if we already have an active order
+    // The network interceptor's side data is authoritative
+    // DOM side detection is unreliable (hover states, etc.)
     if (data.side && data.side !== state.side) {
-      state.side = data.side;
-      console.log('[TopstepX v4] ✅ Side:', data.side);
-      changed = true;
+      // Only accept side from DOM if we don't have an active order with confirmed side
+      if (!state.hasActiveOrder) {
+        state.side = data.side;
+        console.log('[TopstepX v4] ✅ Side from DOM:', data.side);
+        changed = true;
+      } else {
+        console.log('[TopstepX v4] ⏭️ Ignoring side change from DOM (order already active)');
+      }
     }
 
     // If we have complete order data from DOM, update lines
-    if (changed) {
-      // DOM data indicates there's likely an active order
-      // (will be validated in updateLines)
+    // But only if meaningful data changed (not just side)
+    if (changed && (data.changedFields?.includes('symbol') || 
+                    data.changedFields?.includes('price') || 
+                    data.changedFields?.includes('quantity'))) {
       updateLines();
     }
   }
@@ -519,6 +550,12 @@
   function updateLines() {
     if (!state.symbol || !state.price || !chartAccess || !chartAccess.chart) {
       console.log('[TopstepX v4] ⏳ Waiting for data... Symbol:', state.symbol, 'Price:', state.price, 'Chart:', !!chartAccess?.chart);
+      return;
+    }
+    
+    // Don't recreate lines if user is currently dragging
+    if (chartAccess.isCurrentlyDragging && chartAccess.isCurrentlyDragging()) {
+      console.log('[TopstepX v4] 🖱️ User is dragging - skipping line update');
       return;
     }
     
@@ -643,4 +680,3 @@
   }
 
 })();
-

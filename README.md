@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-4.3.1-blue.svg)
+![Version](https://img.shields.io/badge/version-4.5.5-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Chrome](https://img.shields.io/badge/chrome-extension-yellow.svg)
 
@@ -262,7 +262,7 @@ If you find a bug or have a suggestion:
 ### Lines not appearing?
 
 1. **Check console logs** (F12 → Console)
-   - Look for `[TopstepX v4.3.1]` banner
+   - Look for `[TopstepX v4.5.5]` banner
    - Look for `✅ All interceptors installed successfully`
 
 2. **Verify order detection**
@@ -289,6 +289,12 @@ If you find a bug or have a suggestion:
 4. Refresh TopstepX page (F5)
 
 ## 📝 Changelog
+
+### v4.5.5 (2024-12-15)
+- 🛡️ Stop orders support added
+- 💾 Persistent lines on navigation
+- 🐛 Drag detection fix
+- 🔧 Auto-clear orders when cancelled/executed
 
 ### v4.3.1 (2024-12-11)
 - ✨ Minimalist UI with thinner lines (1px default)

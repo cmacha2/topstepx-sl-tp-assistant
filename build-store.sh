@@ -3,7 +3,7 @@
 # Build script for Chrome Web Store submission
 # Creates a clean ZIP file with only necessary files
 
-VERSION="4.4.1"
+VERSION="4.5.5"
 BUILD_DIR="build"
 ZIP_NAME="topstepx-sltp-assistant-v${VERSION}.zip"
 
@@ -74,6 +74,9 @@ echo "3. Upload: ${ZIP_NAME}"
 echo "4. Fill in store listing details"
 echo "5. Submit for review"
 echo ""
+
+
+
 
 
 
